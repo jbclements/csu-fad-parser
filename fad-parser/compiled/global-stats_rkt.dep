@@ -1,0 +1,1 @@
+("6.7.0.1" ("3024c9f9c9647b0f942e98aaa35a5c28a2746ddb" . "a2630d46a9c4928140c088048e42ffdb35927039") (collects #"fad-parser" #"all-data.rkt") (collects #"fad-parser" #"extras.rkt") (collects #"fad-parser" #"pages-to-parsed.rkt") (collects #"plot" #"main.rkt") (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt"))

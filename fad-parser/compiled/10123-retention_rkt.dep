@@ -1,0 +1,1 @@
+("6.7.0.1" ("7d52e5ae7979c4aa0bb5f430fc2178bcfdba10a3" . "c2950f0035e98c095cf9ec9961eae92aa5112360") (collects #"plot" #"main.rkt") (collects #"plot" #"private" #"no-gui" #"plot2d.rkt") (collects #"plot" #"private" #"plot2d" #"rectangle.rkt") (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt"))

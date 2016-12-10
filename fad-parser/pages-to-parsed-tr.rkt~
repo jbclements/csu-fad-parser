@@ -1,0 +1,827 @@
+#lang typed/racket
+
+(require "divide-columns.rkt")
+
+(require/typed "fad-to-pages.rkt"
+               [#:struct dept-pages
+                ([name : String]
+                 [summary : (Listof (List String
+                                          (Listof String)))]
+                 [detail : (Listof Any)])]
+               [#:struct fad-pages ([college-summary
+                                     : (U (Listof (List String
+                                                        (Listof String)))
+                                          'no-college-summary-page)]
+                                    [depts : (Listof dept-pages)])]
+               [file->fad-pages (Path-String Format -> fad-pages)])
+
+(require/typed "parse-dept-lines.rkt"
+               [pre-2144-dept-lines-parser
+                (-> (Listof Any) String
+                    (Listof (List (Listof String) String)))]
+               [post-2142-dept-lines-parser
+                (-> (Listof Any) String
+                    (Listof
+                     (U (List 'split-appt-remote String (Listof String) String)
+                        (List 'home-dept String (Listof String) (Listof String) String)
+                        (List 'no-class-instructor String (Listof String) String))))])
+
+(provide (struct-out InstructorLines)
+         (struct-out Instructor)
+         (struct-out Dept)
+         (struct-out Parsed)
+         (struct-out Offering)
+         (struct-out FacultyOffering)
+         file->parsed
+         parse-pages
+         pre-2144-parse-instructor
+         post-2142-parse-instructor
+         dept->instructors
+         lines->instructor
+         instructor-courses
+         dept-short-name
+         col-ref
+         #;col-ref/g
+         line-kind
+         cols-ref
+         string->number/0
+         small?)
+
+
+;;(make-parsed (listof (list string assoc-list)) (listof dept))
+(struct Parsed ([college-summary : (U (Listof (List String (Listof String)))
+                                      'no-college-summary-page)]
+                [depts : (Listof Dept)]
+                [offerings : (Listof Offering)]
+                [faculty-offerings : (Listof FacultyOffering)]
+                [atoms : (Listof (Listof AssocLine)
+                                 #;CourseAtom)])
+  #:transparent)
+
+
+;;(make-dept string (listof (list string assoc-list)) (listof instructor))
+(struct Dept ([name : String]
+              [summary : (Listof (List String (Listof String)))]
+              [instructors : (Listof Instructor)])
+  #:transparent)
+
+
+
+;; represents information about an instructor, independent
+;; of the courses he or she is teaching.
+(define-struct Instructor ((header : AssocLine) 
+                           (summary : AssocLine)
+                           (specials : (Listof Special))
+                           [home? : Boolean])
+  #:transparent)
+
+;; an offering is a group of students signed up for a class.
+(define-struct Offering
+  ([subject : String]
+   [coursenum : String]
+   [section : Natural]
+   [discipline : Natural]
+   [level : Level]
+   [enrollment : Natural]
+   [classification : (U #f Natural)]
+   [accu : Real]
+   [groupcode : (U #f Natural)])
+  #:transparent)
+
+(define-type Level (U "LD" "UD" "GD"))
+
+;; an offerfac describes an instructor's involvement with a section
+(define-struct FacultyOffering
+  ([subject : String]
+   [coursenum : String]
+   [section : Natural]
+   [instructor : String]
+   [scu : Real]
+   [contact-hours : Real]
+   [dwtu : Real])
+  #:transparent)
+
+;; a course-atom is a tuple of prefix X number X section X sequence X instructor,
+;; and all of the info that depends on that
+(define-struct CourseAtom
+  ([prefix : String]
+   [course-num : String]
+   [section : Natural]
+   [sequence : Natural]
+   [instructor : String]
+   [discipline : Natural]
+   [level : Level]
+   [enrollment : Natural]
+   [group-code : Natural]
+   [team-teach-frac : Nonnegative-Real]
+   [scu : Nonnegative-Real]
+   [wtu : Nonnegative-Real]
+   [contact-hours : Nonnegative-Real]
+   [time-stop : String]
+   [space : String]
+   [days : String]
+   [facility : String]
+   [facility-type : String]
+   [time-start : String]
+   [a-ccu : String]
+   [tba-hours : Nonnegative-Real]
+   [classification : Natural])
+  #:transparent)
+
+;; represents a special assignment (such as course planning or
+;; development)
+(define-struct Special
+  ([description : String]
+   [scu : Nonnegative-Real]
+   [contact-hours : Nonnegative-Real]
+   [direct-wtu : Nonnegative-Real]
+   [indirect-wtu : Nonnegative-Real])
+  #:transparent)
+
+
+
+;; represents an instructor's lines. The header represents
+;; the first line of the instructor's record, the summary
+;; represents the last line, the courses represent both the
+;; courses and the non-course specials, and home? indicates
+;; whether this record is the one in the instructor's home
+;; department (for split appointments).
+;; Note that because of the way the fad is parsed, this data
+;; is *heavily* order-dependent; a second sequence may be
+;; missing all information about subject, coursenum, etc.
+(define-struct InstructorLines ((header : AssocLine) 
+                                (summary : AssocLine)
+                                (lines : (Listof KindAssocLine))
+                                (home? : Boolean))
+  #:transparent)
+
+
+;; a standard association list, with a 'kind' at the beginning
+;; indicating whether it's a course line or a special line.
+(define-type KindAssocLine
+  (Pairof (List 'kind Symbol)
+          AssocLine))
+
+;; NOTES ON CRAZY DATA
+;; ahhhhh.... I'm starting to believe that the big change between 2142 and 2144
+;; is that they stopped printing the lines in which that instructor had no
+;; part.
+;;
+;; COLUMNS:
+;; 
+;; - classification: in pre-2144, always just one classification, appearing
+;; in the first line of an instructor's section record. in Post 2142, blanks
+;; are replaced by 00s, and some instructor-section records have all lines at
+;; 00. :(
+;; - discipline : universally blank-after-first.
+;; - level : universally blank-after-first.
+;; - enrollment : universally blank-after-first.
+;; - a-ccu : until 2138, universally blank-after-first. Then things start to
+;;   get weird. David Janzen has a lab class split .4/.6 in 2138. In 2142 again
+;;   weird, David has two splits, a 1.3/1.7 and another .4/.5. These are all
+;;   on CSC 436. AFTER 2142, it looks like the a-ccu is always nonzero for exactly
+;;   one line per *section*, not per instructor-section. In summary: it appears
+;;   that this number should be summed and attached to the offering
+;; - days : big tangle of heterogeneous and blank-after-first.
+;; - time-start : big tangle of junk
+;; - time-stop : big tangle of junk
+;; - tba-hours : big tangle of junk
+;; - facility : big tangle of junk
+;; - facility-type : big tangle of junk
+;; - group code : at most one per section
+;; ...
+;; - scu : ah! good data. exactly one nonzero-nonblank value per instructor-section.
+;;   this column suggests that we should actually have an instructor-section table.
+;; - contact-hours : same thing! except that many of them are completely blank.
+;;   looks like these should be summed per instructor-section
+;; - direct-wtu : same thing! should be summed per instructor-section
+;; - indirect-wtu : totally blank.
+;; - total-wtu : totally blank.
+
+;; in offering record:
+;; - qtr, subject, coursenum, section, discipline, level, enrollment, a-ccu, group code, classification
+;; in offerfac record:
+;; - ((qtr,subject,coursenum,section),instructor),scu,contact-hours,direct-wtu
+;; in offerseq record:
+;; - (qtr,subject,coursenum,section),sequence,instructor),days,time-start,time-stop,tba-hours,facility, space, facility-type, team-teaching-frac
+
+
+
+
+
+(: file->parsed (Path-String Format -> Parsed))
+(define (file->parsed file fformat)
+  (parse-pages (file->fad-pages file fformat) fformat))
+
+;; transform a fad-pages into a fad-parsed
+(: parse-pages (fad-pages Format -> Parsed))
+(define (parse-pages fad-pages fformat)
+  (define instructorlineseses
+    (for/list : (Listof (Listof InstructorLines))
+      ([dept-pages (in-list (fad-pages-depts fad-pages))])
+      (dept->instructors dept-pages fformat)))
+  (define depts
+    (for/list : (Listof Dept)
+      ([dept-pages (in-list (fad-pages-depts fad-pages))]
+       [instructorlineses (in-list instructorlineseses)])
+      (define instructors (map lines->instructor instructorlineses))
+      (Dept (dept-short-name (dept-pages-name dept-pages))
+            (dept-pages-summary dept-pages)
+            instructors)))
+  (define instructorlineses (apply append instructorlineseses))
+  (define courselines
+    (apply append
+           (for/list : (Listof (Listof AssocLine))
+             ([instructorlines (in-list instructorlineses)])
+             (attach-course-identity-info
+              (instructor-courses instructorlines)))))
+  (define section-line-groups (regroup-lines courselines))
+  (define offerings (map section-lines->offering section-line-groups))
+  (define offerfacs
+    (apply append
+           (map section-lines->faculty-offerings section-line-groups)))
+  (Parsed (fad-pages-college-summary fad-pages)
+          depts
+          offerings
+          offerfacs
+          section-line-groups))
+
+;; given a list of lines representing a section, return an offering
+(: section-lines->offering ((Listof AssocLine) -> Offering))
+(define (section-lines->offering lines)
+  (when (null? lines)
+    (raise-argument-error 'section-lines->offering
+                          "non-empty list" 0 lines))
+  (Offering (allthesame lines 'dept)
+            (allthesame lines 'course-num)
+            (cast (string->number (allthesame lines 'section)) Natural)
+            (cast (string->number (cast (atmostone lines 'discipline) String)) Natural)
+            (normalize-level (cast (atmostone lines 'level) String))
+            (cast (string->number (cast (atmostone lines 'enrollment) String)) Natural)
+            (collapse-classification lines)
+            (sum-of-nums lines 'a-ccu)
+            (match (atmostone lines 'group-code)
+              [#f #f]
+              [(? string? s) (cast (string->number s) Natural)])))
+
+(: section-lines->faculty-offerings ((Listof AssocLine) -> (Listof FacultyOffering)))
+(define (section-lines->faculty-offerings lines)
+  (when (null? lines)
+    (raise-argument-error 'section-lines->offering
+                          "non-empty list" 0 lines))
+  (define instr-groups
+    (group-by (λ ([l : AssocLine]) (col-ref 'instructor l))
+              lines))
+  (map instructor-section-lines->faculty-offering instr-groups))
+
+
+(: instructor-section-lines->faculty-offering ((Listof AssocLine) -> FacultyOffering))
+(define (instructor-section-lines->faculty-offering lines)
+  (define dept (allthesame lines 'dept))
+  (define course-num (allthesame lines 'course-num))
+  (FacultyOffering dept
+                   course-num
+                   (cast (string->number (allthesame lines 'section)) Natural)
+                   (allthesame lines 'instructor)
+                   (sum-of-nums lines 'scu)                   
+                   (sum-of-nums lines 'faculty-contact-hours)
+                   (sum-of-nums lines 'direct-wtu)))
+
+(: normalize-level : (String -> Level))
+(define (normalize-level level)
+  (match level
+    ["3" "GD"]
+    ["2" "UD"]
+    ["1" "LD"]
+    ["GD" "GD"]
+    ["UD" "UD"]
+    ["LD" "LD"]))
+
+;; ensure all values are the same, return it.
+(: allthesame ((Listof AssocLine) Symbol -> String))
+(define (allthesame lines column)  
+  (define vals (map (λ ([line : AssocLine]) (col-ref column line)) lines))
+  (match (remove-duplicates vals)
+    [(list v) v]
+    [other (raise-argument-error 'allthesame
+                                 (format "list of identical values in column ~e"
+                                         column)
+                                 0 lines column)]))
+
+;; ensure there is at most one non-blank value, return it.
+(: atmostone ((Listof AssocLine) Symbol -> (U #f String)))
+(define (atmostone lines column)
+  (define vals (map (λ ([line : AssocLine]) (col-ref column line)) lines))
+  (define nonblankvals (filter (λ ([s : String]) (not (equal? s ""))) vals))
+  (match (remove-duplicates nonblankvals)
+    [(list) #f]
+    [(list v) v]
+    [other (raise-argument-error 'atmostone
+                                 (format "list containing one nonzero nonblank value in column ~e"
+                                         column)
+                                 0 lines column)]))
+
+
+;; collapse classifications. Discard zeros and blanks, hope for
+;; a remaining value, return 0 if not.
+(: collapse-classification ((Listof AssocLine) -> (U #f Natural)))
+(define (collapse-classification lines)
+  (define vals (map (λ ([line : AssocLine]) (col-ref 'classification line)) lines))
+  (define nonblanknonzerovals (filter (λ ([s : String]) (and (not (equal? s ""))
+                                                             (not (equal? s "00"))))
+                                      vals))
+  (match (remove-duplicates nonblanknonzerovals)
+    [(list) #f]
+    [(list v) (cast (string->number v) Natural)]
+    [other (raise-argument-error 'collapse-classifications
+                                 "at most one nonzero nonblank value for classification"
+                                 0 lines)]))
+
+;; treat every space as a number, add them together
+(: sum-of-nums ((Listof AssocLine) Symbol -> Real))
+(define (sum-of-nums lines column)
+  (define vals (map (λ ([line : AssocLine]) (col-ref column line)) lines))
+  (define nonblankvals (filter (λ ([s : String]) (not (equal? s ""))) vals))
+  (apply + (map (λ ([s : String]) (cast (string->number s) Real)) nonblankvals)))
+
+
+;; (dept-pages format -> (listof instructorlines)
+(: dept->instructors (dept-pages Format -> (Listof InstructorLines)))
+(define (dept->instructors dept fformat)
+  (match fformat
+    ['pre-2144
+     (define instructor-sets
+       (pre-2144-dept-lines-parser
+        (dept-pages-detail dept) (dept-pages-name dept)))
+     (filter InstructorLines-home?
+             (map pre-2144-parse-instructor instructor-sets))]
+    ['post-2142
+     (define instructor-sets
+       (post-2142-dept-lines-parser
+        (dept-pages-detail dept) (dept-pages-name dept)))
+     (map post-2142-parse-instructor instructor-sets)]))
+
+;; these fields can occur only once, in the top line.
+(define once-only-topline-fields
+  (list->set
+   '(dept
+     course-num 
+     section 
+     discipline 
+     level 
+     enrollment
+     #;a-ccu
+     group-code
+     #;classification)))
+
+
+;; these fields can occur only once, in the starred line
+(define once-only-someline-fields
+  (list->set 
+   '(direct-wtu
+     indirect-wtu
+     faculty-contact-hours
+     scu
+     total-wtu)))
+
+
+;; parse a set of instructor lines
+(: pre-2144-parse-instructor
+   ((List (Listof String) String) -> InstructorLines))
+(define (pre-2144-parse-instructor instructor-lines)
+  (match-define (list opening-lines total-line) instructor-lines)
+  (define header-line 
+    (parse-instructor-header-line (first opening-lines) 'pre-2144))
+  (define course-lines
+    (map (parse-course-line 'pre-2144) (rest opening-lines)))
+  #;(define combined-course-lines
+    (regroup-sections course-lines 'pre-2144))
+  (define summary-line (parse-summary-line total-line 'pre-2144))
+  (InstructorLines
+   header-line
+   summary-line
+   course-lines
+   (home-record? header-line
+                 summary-line
+                 course-lines)))
+
+(: post-2142-parse-instructor
+   ((U (List 'split-appt-remote String (Listof String) String)
+       (List 'home-dept String (Listof String) (Listof String) String)
+       (List 'no-class-instructor String (Listof String) String))
+    -> InstructorLines))
+(define (post-2142-parse-instructor instructor-lines)
+  (match instructor-lines
+    [(list 'split-appt-remote header-line specials summary-line)
+     (InstructorLines
+      (parse-instructor-header-line header-line 'post-2142)
+      (parse-summary-line summary-line 'post-2142)
+      (map (parse-course-line 'post-2142) specials)
+      #f)]
+    [(list 'home-dept header-line specials regulars summary-line)
+     (InstructorLines
+      (parse-instructor-header-line header-line 'post-2142)
+      (parse-summary-line summary-line 'post-2142)
+      (append (map (parse-course-line 'post-2142) specials)
+              (map (parse-course-line 'post-2142) regulars))
+      #t)]
+    [(list 'no-class-instructor header-line specials summary-line)
+     (InstructorLines
+      (parse-instructor-header-line header-line 'post-2142)
+      (parse-summary-line summary-line 'post-2142)
+      (map (parse-course-line 'post-2142) specials)
+      #t)]))
+
+;; strip the information about courses out to transform an InstructorLines
+;; into an instructor
+(: lines->instructor (InstructorLines -> Instructor))
+(define (lines->instructor ilines)
+  (Instructor (InstructorLines-header ilines)
+              (InstructorLines-summary ilines)
+              (map line->special (filter
+                                  special?
+                                  (InstructorLines-lines ilines)))
+              (InstructorLines-home? ilines)))
+
+;; transform a special line into a Special structure
+(: line->special (KindAssocLine -> Special))
+(define (line->special l)
+  (Special (col-ref 'special (rest l))
+           (string->number/0 (col-ref 'scu (rest l)))
+           (string->number/0 (col-ref 'faculty-contact-hours (rest l)))
+           (string->number/0 (col-ref 'direct-wtu (rest l)))
+           (string->number/0 (col-ref 'indirect-wtu (rest l)))))
+
+;; extract the courses from an instructor, associating the
+;; instructor name with each. ORDER IS SIGNIFICANT.
+(: instructor-courses
+   (InstructorLines -> (Listof AssocLine)))
+(define (instructor-courses instr)
+  (define name (col-ref 'name (rest (InstructorLines-header instr))))
+  (map (attach-name name)
+       (map (inst cdr Any AssocLine)
+            (filter (λ ([c : KindAssocLine]) (not (special? c)))
+                    (InstructorLines-lines instr)))))
+
+;; attach the given name to each line
+(: attach-name (String -> (AssocLine -> AssocLine)))
+(define (attach-name name)
+  (λ ([line : AssocLine]) (cons (list 'instructor name) line)))
+
+;; copy subject/coursenum/section info from prior courses
+(: attach-course-identity-info
+   ((Listof AssocLine) -> (Listof AssocLine)))
+(define (attach-course-identity-info lines)
+  (cond [(empty? lines) '()]
+        [else
+         (define starting-id (course-line-id (first lines)))
+         (when (blank-id? starting-id)
+           (raise-argument-error 'attach-course-identity-info
+                                 "list of lines with 1st non-blank id"
+                                 0 lines))
+         (let loop ([lines lines]
+                    [prev-id : (List String String String) starting-id])
+           (cond [(empty? lines) '()]
+                 [else
+                  (cond [(blank-id? (course-line-id (first lines)))
+                         (cons (add-id prev-id (first lines))
+                               (loop (rest lines) prev-id))]
+                        [else
+                         (cons (first lines)
+                               (loop (rest lines)
+                                     (course-line-id (first lines))))])]))])
+  )
+
+
+;; group the course lines by subj/num/sect
+(: regroup-lines ((Listof AssocLine) -> (Listof (Listof AssocLine))))
+(define (regroup-lines lines)
+  (group-by
+   course-line-id
+   lines))
+
+;; return the subject/num/section for a courseline
+(: course-line-id (AssocLine -> (List String String String)))
+(define (course-line-id line)
+  (list (col-ref 'dept line)
+        (col-ref 'course-num line)
+        (col-ref 'section line)))
+
+;; is this id blank? signal an error if only some are blank
+(: blank-id? ((List String String String) -> Boolean))
+(define (blank-id? id)
+  (cond [(andmap (λ ([s : String]) (equal? s "")) id) #t]
+        [(ormap (λ ([s : String]) (equal? s "")) id)
+         (raise-argument-error 'blank-id?
+                               "all blank or all non-blank strings"
+                               0 id)]
+        [else #f]))
+
+;; replace the (blank) id elements
+(: add-id ((List String String String) AssocLine -> AssocLine))
+(define (add-id id line)
+  (match-define (list dept course-num section) id)
+  (append `((dept ,dept)
+            (course-num ,course-num)
+            (section ,section))
+          (filter (λ ([l : (List Symbol Any)])
+                    (not (member (first l) '(dept course-num section))))
+                  line)))
+
+#;((: regroup-sections ((Listof KindAssocLine) Format -> (Listof GCourse)))
+(define (regroup-sections course-lines format)
+  (parse/classes/0 course-lines format))
+
+;; these three parsing functions are necessary because when courses
+;; are split into multiple "sequence" lines, the lines after the first
+;; are lacking information and must manually be re-grouped with
+;; their parent line
+
+;; expect special or class or done
+(: parse/classes/0 ((Listof KindAssocLine) Format -> (Listof GCourse)))
+(define (parse/classes/0 lines format)
+  (cond [(empty? lines) empty]
+        [else (match (line-kind (first lines))
+                ['class (parse/classes/1 (rest lines)
+                                         (list (first lines))
+                                         format)]
+                ['extra-sequence
+                 (error 'parse/classes/0
+                        (~a "instructor record started with section continuation: "
+                            (~s (first lines))))]
+                ['special
+                 (cons (first lines)
+                       (parse/classes/2 (rest lines) format))])]))
+
+;; expect special or class or section or done
+(: parse/classes/1
+   ((Listof KindAssocLine) (Listof KindAssocLine) Format -> (Listof GCourse)))
+(define (parse/classes/1 lines so-far format)
+  (cond [(empty? lines) (list (squinch-classes (reverse so-far) format))]
+        [else (match (line-kind (first lines))
+                ['class 
+                 (cons (squinch-classes (reverse so-far) format)
+                       (parse/classes/1 (rest lines)
+                                        (list (first lines))
+                                        format))]
+                ['extra-sequence
+                 (parse/classes/1 (rest lines) (cons (first lines) so-far) format)]
+                ['special
+                 (cons (squinch-classes (reverse so-far) format)
+                       (cons (first lines)
+                             (parse/classes/2 (rest lines) format)))])]))
+
+;; expect special or done
+(: parse/classes/2 ((Listof KindAssocLine) Format -> (Listof GCourse)))
+(define (parse/classes/2 lines format)
+  (cond [(empty? lines) empty]
+        [else (match (line-kind (first lines))
+                ['class
+                 (error 
+                  'parse/classes/2
+                  (~a "instructor record had class after specials: "
+                      (~s (first lines))))]
+                ['extra-sequence
+                 (error 
+                  'parse/classes/2
+                  (~a "instructor record had section after specials: "
+                      (~s (first lines))))]
+                ['special
+                 (cons (first lines)
+                       (parse/classes/2 (rest lines) format))])]))
+
+
+;; given a list of class-lines that refer to the same class,
+;; return a class.
+(: squinch-classes ((Listof KindAssocLine) Format -> GCourse))
+(define (squinch-classes lolines format)
+  (when (equal? (line-kind (first lolines)) 'special)
+    (error 'squinch-classes "expected regular class, got: ~e" lolines))
+  (when (eq? format 'pre-2144)
+    (unless (= 1 (length (filter starred-sequence-line? lolines)))
+      (raise-argument-error 'squinch-classes
+                            "class lines with exactly one starred sequence"
+                            0 lolines)))
+  (define all-field-names 
+    (list->set
+     (remove-duplicates 
+      (apply append (for/list : (Listof (Listof Symbol))
+                      ([line lolines])
+                      (map (inst first Symbol Any) (cdr line)))))))
+  (define once-onlies (set-intersect once-only-topline-fields
+                                     all-field-names))
+  (for ([line (rest lolines)])
+    (for ([field-name (in-set once-onlies)])
+      (when (not (string=? "" (col-ref field-name (cdr line))))
+        (error 'squinch-classes
+               (~a "didn't expect to find field named \""field-name
+                   "\" in sequence: "line)))))
+  (define rest1 (set-subtract all-field-names once-onlies))
+  (define once-somelines (set-intersect rest1 once-only-someline-fields))
+  (match format
+    ['pre-2144
+     (define collapsed-fields
+       (for/fold
+         ([good-line : (U False AssocLine) #f])
+         ([l lolines])
+         (cond [(starred-sequence-line? l)
+                (cons (list 'team-teaching-frac 
+                            (col-ref 'team-teaching-frac (cdr l)))
+                      (for/list : AssocLine
+                        ([f once-somelines])
+                        (list f (col-ref f (cdr l)))))]
+               [else
+                (for ([f once-somelines])
+                  (unless (equal? (col-ref f (cdr l)) "")
+                    (error 'squinch-classes "~a"
+                           (~a "found forbidden field "f
+                               " in non-starred sequence line "(~s l)))))
+                good-line])))
+     (define rest2 (set-subtract (set-subtract rest1 once-somelines)
+                                 (set 'team-teaching-frac)))
+     (cons
+      (list 'kind (line-kind (first lolines)))
+      ((inst append (List Symbol (U String (Listof String))))
+       (for/list : AssocLine
+         ([field-name (in-set once-onlies)])
+         (list field-name (col-ref field-name (cdr (first lolines)))))
+       (cast collapsed-fields AssocLine)
+       (for/list : (Listof (List Symbol (U String (Listof String))))
+         ([field-name rest2])
+         (list field-name
+               (for/list : (Listof String)
+                 ([l lolines])
+                 (col-ref field-name (cdr l)))))))]
+    ['post-2142
+     (: rest2 (Setof Symbol))
+     (define rest2 rest1)
+     (cons (list 'kind (line-kind (first lolines)))
+     (append
+      (for/list : AssocLine
+        ([field-name (in-set once-onlies)])
+        (list field-name (col-ref field-name (cdr (first lolines)))))
+      (for/list : (Listof (List Symbol (Listof String)))
+        ([field-name rest2])
+        (list field-name
+              (for/list : (Listof String)
+                ([l lolines])
+                (col-ref field-name (cdr l)))))))])))
+
+
+;; okay, this is nasty. In pre-2144, the classes taught by split
+;; appointment faculty appear in both their home department and
+;; their other appointment, it's just that in their non-home
+;; department, the bottom-line totals are uniformly zero. blecch.
+;; instructor -> boolean
+(: home-record? (AssocLine AssocLine (Listof KindAssocLine) -> Boolean))
+(define (home-record? header summary course-lines)
+  (define instructor-name (col-ref 'name header))
+  ;; is this a home record for this column?
+  (define col-results
+    (for/list : (Listof Symbol)
+        ;; TEMPORARILY OMITTING INDIRECT WTU! WAITING TO HEAR FROM CSU ON PLACEMENT IN FAD
+        ([col (in-list '(scu faculty-contact-hours direct-wtu #;indirect-wtu))])
+      (define given-total (string->number/0 (col-ref col summary)))
+      (define computed-total
+        (for/sum : Real ([l course-lines])
+          ;; in pre-2144, this shouldn't be a list...
+          (string->number/0
+           (cast (col-ref col (rest l)) String))))
+      ;; sadly, there are two kinds of rounding error here:
+      (cond [(and (small? given-total 1e-4)
+                  (small? computed-total 1e-4)) 'both]
+            [(small? (- given-total computed-total) 
+                    (+ 1e-10 (* 0.1 (length course-lines))))
+             'correct-nonzero]
+            [(small? given-total 1e-4) 'artificial-zero]
+            [else
+             (error 'home-record
+                    (~a "column "col" doesn't add up for "
+                        instructor-name". computed "
+                        computed-total", saw "given-total"\ncourses:"
+                        course-lines"\n"))])))
+  (cond [(no-artificial-zeros? col-results) #t]
+        [(no-correct-nonzeros? col-results) #f]
+        [else 
+         (error 'home-record
+                (~a "expected record to be uniformly zero or to have correct sums, got: "
+                    (~e (append col-results header course-lines summary))))]))
+
+
+(: no-artificial-zeros? ((Listof Symbol) -> Boolean))
+(define (no-artificial-zeros? col-results)
+  (not (member 'artificial-zero col-results)))
+
+(: no-correct-nonzeros? ((Listof Symbol) -> Boolean))
+(define (no-correct-nonzeros? col-results)
+  (not (member 'correct-nonzero col-results)))
+
+(: small? (Real Real -> Boolean))
+(define (small? a tolerance) (<= (abs a) tolerance))
+
+(: string->number/0 (String -> Nonnegative-Real))
+(define (string->number/0 str)
+  (cond [(string=? str "") 0.0]
+        [else (cast (string->number str)
+                    Nonnegative-Real)]))
+
+
+
+(: dept-short-name (String -> String))
+(define (dept-short-name n)
+  (match n
+    [(regexp #px"DEPARTMENT - (\\d+) (.*)" (list _ num name))
+     (dept-name-matcher (cast name String))]
+    [(regexp #px"(\\d+) (.*)" (list _ num name))
+     (dept-name-matcher (cast name String))]
+    [other
+     (raise-argument-error 'dept-short-name "department name matching pattern" 0 n)]))
+
+
+;; shorten department names
+(: dept-name-matcher (String -> String))
+(define (dept-name-matcher name)
+  (match name
+    ["AERO ENG" "AERO"]
+    ["ALL SCHOOL" "ALLSCHOOL"]
+    ["CIVIL/ENV ENG" "CEENVE"]
+    ;; change to CSSE?
+    ["COMPUTER SCIENCE" "CSC"]
+    ["BIOMEDICAL ENGINEERING" "BMGE"]
+    ["ELECTRICAL ENGINEERING" "EE"]
+    ["IND ENG" "IME"]
+    ["MECHANICAL ENG" "ME"]
+    ["WELDING AND METALLURGICAL ENGINEERING" "MATE"]))
+
+
+
+;; does this line describe a starred sequence?
+(: starred-sequence-line? (KindAssocLine -> Boolean))
+(define (starred-sequence-line? l)
+  (regexp-match? #px"^\\*" (col-ref 'sequence (cdr l))))
+
+(: line-kind ((Pairof (List 'kind Symbol) Any) -> Symbol))
+(define (line-kind line)
+  (cadr (car line)))
+
+(: col-ref (Symbol AssocLine -> String))
+(define (col-ref title record)
+  (match (assoc title record)
+    [#f (error 'col-ref
+               (~a "expected record with field '"title", got: "(~e record)))]
+    [(list _ val) val]))
+
+;; for use with GCourses
+#;(: col-ref/g (Symbol GCourse -> (U String (Listof String))))
+#;(define (col-ref/g title record)
+  (match (assoc title (cdr record))
+    [#f (error 'col-ref
+               (~a "expected record with field '"title", got: "(~e record)))]
+    [(list _ val) val]))
+
+(: cols-ref ((Listof Symbol) KindAssocLine -> (Listof String)))
+(define (cols-ref titles record)
+  (map (λ ([title : Symbol]) (col-ref title (cdr record))) titles))
+
+
+(: special? (KindAssocLine -> Boolean))
+(define (special? course)
+  (eq? (line-kind course) 'special))
+
+(module+ test
+  (require typed/rackunit)
+
+  ;; REGRESSION
+  #;(check-equal?
+   (squinch-classes
+    (list
+     ((parse-course-line 'pre-2144)
+      "     AERO   0451      01  09021  2  50  *10  4  4.0  MW    1410 \
+1600        192  0322    1      1.000   200.0  3.8   4.00              \
+    "))
+    'pre-2144)
+   '((kind class)
+     (discipline "09021")
+     (group-code "")
+     (course-num "0451")
+     (section "01")
+     (level "2")
+     (enrollment "50")
+     (dept "AERO")
+     (team-teaching-frac "1.000")
+     (scu "200.0")
+     (indirect-wtu "")
+     (total-wtu "")
+     (direct-wtu "4.00")
+     (faculty-contact-hours "3.8")
+     (sequence ("*10"))
+     (time-stop ("1600"))
+     (space ("0322"))
+     (days ("MW"))
+     (facility ("192"))
+     (facility-type ("1"))
+     (time-start ("1410"))
+     (a-ccu ("4.0"))
+     (tba-hours (""))
+     (classification ("4")))))
+
