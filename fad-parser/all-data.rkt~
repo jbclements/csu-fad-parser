@@ -1,0 +1,87 @@
+#lang racket
+
+(require "pages-to-parsed-tr.rkt"
+         "fad-to-pages.rkt"
+         racket/date
+         racket/fasl)
+
+(provide/contract
+          [parsed-qtrs (listof Parsed?)]
+          #;[parsed-qtr-atoms (listof (listof (listof any/c)))]
+          [dates (listof number?)]
+          [qtr-nums (listof number?)]
+          #;[all-dept-names (listof string?)])
+
+;; this file reads in all of the FADs that we have, and 
+;; provides them as a list of depts.
+
+(define FAD-DIRECTORY (build-path "/Users/clements/clements/datasets/FAD"))
+
+(define (qtr->date year name)
+  (define month-num
+    (match name
+      ["winter" 3]
+      ["spring" 6]
+      ["fall" 12]))
+  (find-seconds 0 0 0 30 month-num year))
+
+(define (qtr->cal-poly-qtr year name)
+  (+ 2000
+     (* 10 (modulo year 100))
+     (match name
+       ["winter" 2]
+       ["spring" 4]
+       ["summer" 6]
+       ["fall" 8])))
+
+(define (qtr->base-and-date-and-format year name)
+  (define cpqtr (qtr->cal-poly-qtr year name))
+  (list (qtr->date year name)
+        cpqtr
+        (cond [(< cpqtr 2144) 'pre-2144]
+              [else 'post-2142])))
+
+(define filename-roots-and-dates
+  (map (lambda (x) (apply qtr->base-and-date-and-format x))
+       (append
+        '((2008 "fall"))
+        (apply
+         append
+         (for/list ([i (in-range 2009 2016)])
+           (for/list ([j '("winter" "spring" "fall")])
+             (list i j))))
+        '((2016 "winter")
+          (2016 "spring")))))
+
+(define filename-roots
+  (map number->string (map second filename-roots-and-dates)))
+
+(define filenames
+  (for/list ([f filename-roots])
+    (build-path FAD-DIRECTORY (~a "fad-"f".txt"))))
+
+(define formats (map third filename-roots-and-dates))
+
+(define parsed-qtrs
+  (map file->parsed filenames formats))
+
+(define dates (map first filename-roots-and-dates))
+(define qtr-nums (map second filename-roots-and-dates))
+
+#;(define all-dept-names
+  (remove-duplicates
+   (for*/list ([qtr parsed-qtrs]
+               [dept (Parsed-depts qtr)])
+     (Dept-name dept))))
+
+#;(define scu-sets
+(for*/list ([qtr parsed-qtrs]
+            [dept (Parsed-depts qtr)]
+            [instructor (Dept-instructors dept)]
+            [course (instructor-courses instructor)]
+            #:when (and
+                    (eq? (line-kind course) 'class)
+                    (list? (col-ref 'scu course))
+                    (< 1 (length (col-ref 'scu course)))))
+  (col-ref 'scu course)))
+

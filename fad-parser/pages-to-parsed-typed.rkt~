@@ -1,0 +1,54 @@
+#lang typed/racket
+
+(define-type Format (U 'pre-2144 'post-2138))
+
+(define-type SplitInfo (Listof SplitInfoField))
+(define-type SplitInfoField (List (List Natural Natural)
+                                  FmtLabel
+                                  Symbol))
+
+(define-type FmtLabel (U 'id 'alpha 'alphanum 'nums 'course-num
+                         'seq-num 'decimal))
+
+(: pat (FmtLabel -> Regexp))
+(define (pat sym)
+  (match sym
+    ['id #px"^(0 |)XXXXX\\d\\d\\d\\d$"]
+    ['alpha #px"^[-A-Z'/ ]*$"]
+    ['alphanum #px"^[-A-Z'/ 0-9]*$"]
+    ['nums #px"^\\d+$"]
+    ['course-num #px"^\\d\\d\\d\\d( X)?$"]
+    ['seq-num #px"^(\\*|)\\d+$"]
+    ['decimal #px"^[\\d]*\\.[\\d]+$"]))
+
+;; given a split-info and a string and a format selector,
+;; return an association list of the form (Listof (List Symbol String))
+(: string-split-cols (SplitInfo String Format
+                                -> (Listof (List Symbol String))))
+(define (string-split-cols split-info str format)
+  (: posn-fun ((List Natural Natural) -> Natural))
+  (define posn-fun
+    (match format
+      ['pre-2144 first]
+      ['post-2138 second]))
+  (define len (string-length str))
+  (define full-cols-list
+    (append
+     (map posn-fun
+          (map (inst first (List Natural Natural) Any)
+               split-info))
+     (list (string-length str))))
+  (for/list ([start full-cols-list]
+             [stop (rest full-cols-list)]
+             [pat-sym : FmtLabel
+                      (map (ann second (SplitInfoField -> FmtLabel))
+                           split-info)]
+             [field-name (map (ann third (SplitInfoField -> Symbol))
+                              split-info)])
+    (define substr (string-trim (substring str (min start len) (min stop len))))
+    (unless (or (string=? "" substr) (regexp-match (pat pat-sym) substr))
+      (error 'split-string-cols 
+             (~a "expected field matching pattern "(~s pat-sym)", got: "
+                 (~s substr)
+                 "in line "(~s str))))
+    (list field-name substr)))
