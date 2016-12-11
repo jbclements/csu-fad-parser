@@ -4,11 +4,10 @@
          plot)
 
 ;; something to do with faculty contact hours?
-
+(module+ main
 (define conn
    (mysql-connect #:user "clements"
                  #:database "fad"
-                 #:password "aoeuidht"
                  #:port 11306))
 
 ;; oh dear... FCH need to be corrected, too.
@@ -370,4 +369,4 @@
             (vector (last sorted-vals) i))))))
  "/tmp/faculty-contact-hours-grouped-by-classification.pdf")
 
-(disconnect conn) 
+(disconnect conn)) 

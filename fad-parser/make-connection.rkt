@@ -21,7 +21,7 @@
 ;; the user to use for making the connection
 (define USER "grader")
 ;; terrible low-security password
-(define PASSWORD "aoeuidht")
+(define PASSWORD "abc123")
 ;; the database to connect to
 (define DATABASE "fad")
 

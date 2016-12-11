@@ -9,7 +9,6 @@
     (lambda ()
       (mysql-connect #:user "clements"
                  #:database "fad"
-                 #:password "aoeuidht"
                  #:port 11306))))
 
 (define depts

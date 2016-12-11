@@ -3,10 +3,10 @@
 (require db
          plot)
 
+(module+ main
 (define conn
   (mysql-connect #:user "clements"
                  #:database "fad"
-                 #:password "aoeuidht"
                  #:port 11306
                  ))
 
@@ -82,6 +82,6 @@
 #;(plot-file
  (discrete-histogram
   (map (lambda (p) (vector (car p) (cdr p))) sorted-list))
- "/tmp/sections-of-students.pdf")
+ "/tmp/sections-of-students.pdf"))
 
 
