@@ -4,8 +4,7 @@
 
 (module+ main
 (require db
-         "make-connection.rkt"
-         (only-in "pages-to-parsed.rkt" group-by))
+         "make-connection.rkt")
 
 (define conn
    (mysql-connect #:user "clements"

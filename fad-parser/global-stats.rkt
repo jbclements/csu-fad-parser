@@ -2,56 +2,12 @@
 
 ;; yikes, this file isn't in good shape.
 
-(require "pages-to-parsed.rkt"
-         "extras.rkt"
-         "all-data.rkt"
+(require "all-data.rkt"
          plot)
 
-(define instructors-with-overload
-  '("D A CASTANEDA"
-  "D I KACHLAKEV"
-  "D C JANSEN"
-  "E W LEAPHART"
-  "B C LEU"
-  "S C HEYNE"
-  "T L THATCHER"
-  "E I ELGHANDOUR"
-  "D B ESPOSTO"
-  "C B CHADWELL"
-  "A   PANDE"
-  "N   MITRA"
-  "E H JUD"
-  "R S MULLISEN"
-  "C   LO"
-  "Y M NELSON"
-  "M K MULETA"
-  "K A WORMLEY"
-  "S   RAHMAN"
-  "R A WESTMANN"
-  "F C OWEN"
-  "K T DEVANEY"
-  "D J DETURRIS"
-  "G J HALL"
-  "S A VIGIL"
-  "E A MEHIEL"
-  "K J ABERCROMBY"
-  "S   MOAZZAMI"
-  "D C BEARD"
-  "J L HANSON"
-  "B   QU"
-  "J   PUIG-SUARI"
-  "N   PAL"
-  "O H DAZA"
-  "A M RAHIM"
-  "P F VALADAO"
-  "D W SEE"
-  "R K GOEL"
-  "R E MOSS"
-  "E P KASPER"
-  "J M LYNN"))
 
 
-
+#;(
 (define (is-overload? c)
   (and (eq? (col-ref 'kind c) 'special)
          (equal? (col-ref 'special c)
@@ -77,7 +33,7 @@
 #;(for/list ([(name records) table])
   (for/list ([r records])
     )
-  (list i (map rest (hash-ref table qtr empty))))
+  (list i (map rest (hash-ref table qtr empty)))))
 
 
 

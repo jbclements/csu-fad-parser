@@ -1,5 +1,8 @@
 #lang racket
 
+;; old old old
+
+
 (require "fad-parser.rkt"
          "pages-to-parsed.rkt"
          "all-data.rkt"
@@ -8,7 +11,7 @@
 
 
 ;; one-stat: the change of a single statistic across faculty and time
-(define (one-stat parseds short-dept-name column)
+#;(define (one-stat parseds short-dept-name column)
   (define dept-qtrs
     (for/list ([g parseds])
       (map
