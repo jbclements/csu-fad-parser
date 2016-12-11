@@ -6,6 +6,7 @@
 
 (require "pages-to-parsed-tr.rkt")
 
+#;(
 (provide un-labwash
          is-senior-project?
          has-group?)
@@ -232,7 +233,7 @@
 
 
 (define (find-instructor name instructors)
-  (list-find name instructors #:key instructor-name))
+  (list-find name instructors #:key instructor-name)))
 
 
 #|

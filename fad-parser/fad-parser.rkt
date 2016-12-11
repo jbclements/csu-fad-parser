@@ -2,10 +2,7 @@
 
 ;; it looks like I ... I think this file is totally obsolete.
 
-(require "pages-to-parsed.rkt")
-
-(provide (all-defined-out))
-
+(require "pages-to-parsed-tr.rkt")
 
 
 ;; return the first of a list of length 1.
@@ -159,7 +156,8 @@
 
 ;; correct for labwashing accounting error by recomputing WTUs for senior projects:
 ;; instructor->instructor
-(define (un-labwash instr)
+;; BROKEN
+#;(define (un-labwash instr)
   (define-values (special-courses class-courses)
     (partition special? (instructor-courses instr)))
   (define new-courses
@@ -227,8 +225,8 @@
   (equal? a (set-intersect a b)))
 
 
-
-(define (find-instructor name instructors)
+;; BROKEN
+#;(define (find-instructor name instructors)
   (list-find name instructors #:key instructor-name))
 
 

@@ -12,23 +12,6 @@
          "fad-to-pages.rkt"
          explorer)
 
-(provide (struct-out parsed)
-         (rename-out [my-group-by group-by])
-         ;; for debugging, temporary:
-         parse-pages
-         (contract-out
-          #;(struct dept ([name string?]
-                        [summary (listof summary-line?)]
-                        [instructors (listof instructor?)]))
-          #;[file->parsed (-> path-string?
-                            format/c
-                            parsed?)]
-          #;[fad-pages->parsed (-> fad-pages?
-                                 format/c
-                                 parsed?)]
-          #;[summary-column-ref (-> symbol? summary-row? number?)]))
-
-
 (define assoc-list? (listof (list/c symbol? (or/c symbol? string? (listof string?)))))
 (define summary-line? (list/c string? (listof string?)))
 
