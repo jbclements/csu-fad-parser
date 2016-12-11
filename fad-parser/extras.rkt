@@ -1,5 +1,9 @@
 #lang racket
 
+;; I think this is all pretty much out of date.
+;; the database proper no longer tries to correct
+;; for the sins of labwashing.
+
 (require "pages-to-parsed-tr.rkt")
 
 (provide un-labwash

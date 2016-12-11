@@ -2,14 +2,14 @@
 
 ;; FIGURING OUT WHICH FACULTY ARE TENURE-TRACK
 
+(module+ main
 (require db
          "make-connection.rkt"
          (only-in "pages-to-parsed.rkt" group-by))
 
 (define conn
    (mysql-connect #:user "clements"
-                 #:database "fad"
-                 #:password "aoeuidht"))
+                 #:database "fad"))
 
 (define rows
   (map (lambda (v) (vector-ref v 0))
@@ -139,4 +139,4 @@
       (match-define (list fi mi last) (first m))
       (display (~a fi" "mi" "last", "(second m)"\n")))))
 |#
-(disconnect conn)
+(disconnect conn))

@@ -1,11 +1,12 @@
 #lang racket
 
+;; I think all of this code is out of date.
+(module+ main
 (require db)
 
 (define conn
    (mysql-connect #:user "clements"
-                 #:database "fad"
-                 #:password "aoeuidht"))
+                 #:database "fad"))
 
 ;; DIRECT WTU QUERY:
 
@@ -222,4 +223,4 @@
 
 #;(length point-names)
 
-(disconnect conn)
+(disconnect conn))

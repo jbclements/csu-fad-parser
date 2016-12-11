@@ -1,1 +1,0 @@
-("6.7.0.1" ("72b2aa7135861efa7eaee43f738819561e2e41e0" . "94325de5233be920b354dd4f64237d6281ea84ab") (collects #"fad-parser" #"pages-to-parsed.rkt") (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt") (indirect collects #"racket" #"match" #"gen-match.rkt") (indirect collects #"racket" #"match" #"parse.rkt"))

@@ -1,5 +1,7 @@
 #lang racket
 
+;; it looks like I ... I think this file is totally obsolete.
+
 (require "pages-to-parsed.rkt")
 
 (provide (all-defined-out))
