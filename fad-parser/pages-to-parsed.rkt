@@ -10,7 +10,41 @@
 (require "divide-columns.rkt"
          "pages-to-parsed-tr.rkt"
          "fad-to-pages.rkt"
-         explorer)
+         explorer
+         db)
+
+;; here's a check...
+
+(define conn
+  (postgresql-connect ))
+
+(define
+  sums
+  (query-rows
+   conn
+   (~a
+    "SELECT o.subject,o.num,o.qtr,o.section,
+            o.enrollment,o.accu,SUM(f.scu) FROM "
+    " offerings o INNER JOIN offerfacs f "
+    "  ON o.subject = f.subject AND o.num = f.num "
+    "  AND o.qtr = f.qtr AND o.section = f.section "
+    " WHERE (o.classification IS NOT NULL) "
+    " GROUP BY o.subject,o.num,o.qtr,o.section "
+    " ORDER BY o.qtr;")))
+
+(require explorer)
+(define bads
+  (filter (λ (r)
+            (> (abs
+                (- (* (vector-ref r 4)
+                      (vector-ref r 5))
+                   (vector-ref r 6)))
+               
+               400))
+          sums))
+(length bads)
+(explore
+ bads)
 
 (define assoc-list? (listof (list/c symbol? (or/c symbol? string? (listof string?)))))
 (define summary-line? (list/c string? (listof string?)))
