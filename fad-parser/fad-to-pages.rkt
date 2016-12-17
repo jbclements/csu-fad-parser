@@ -212,6 +212,8 @@
    (list #px"^[ _]*__[ _]*$" token-INSTRUCTOR-TOTS-DIV)
    (list #px"^[ \\*]*\\*\\*[ \\*]*$" token-INSTRUCTOR-DIV)))
 
+;; oh dear lord... things are different again in 2168?
+
 
 
 
@@ -606,7 +608,9 @@
     "       DEPARTMENTS. ACTUAL VALUES OVER ALL DEPT APPOINTMENTS ARE: D-WTU= 7.3, I-WTU= 0.0, T-WTU= 7.3")
    (token-INSTRUCTOR-SPLIT-APPOINTMENT-NOTE-2 '()))
 
-  
+  #;(check-equal?
+   ((page-line-tokenize post-2142-regexp-pairings)
+   "   SSN        EMPLOYEE ID     NAME                   RANGE CODE            TSF    IAF     ADM-LVL           OSF                                      IFF"))
   )
 
 
