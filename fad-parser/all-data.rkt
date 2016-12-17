@@ -1,14 +1,10 @@
 #lang racket
 
-(require "pages-to-parsed-tr.rkt"
-         "fad-to-pages.rkt"
-         racket/date
-         racket/fasl)
+(require "pages-to-parsed-tr.rkt")
 
 (provide/contract
           [parsed-qtrs (listof Parsed?)]
           [parsed-qtr-atoms (listof (listof (listof any/c)))]
-          [dates (listof number?)]
           [qtr-nums (listof number?)]
           #;[all-dept-names (listof string?)])
 
@@ -17,59 +13,43 @@
 
 (define FAD-DIRECTORY (build-path "/Users/clements/clements/datasets/FAD"))
 
-(define (qtr->date year name)
-  (define month-num
-    (match name
-      ["winter" 3]
-      ["spring" 6]
-      ["fall" 12]))
-  (find-seconds 0 0 0 30 month-num year))
 
-(define (qtr->cal-poly-qtr year name)
-  (+ 2000
-     (* 10 (modulo year 100))
-     (match name
-       ["winter" 2]
-       ["spring" 4]
-       ["summer" 6]
-       ["fall" 8])))
+;; let's find bugs in this file:
+#;(file->parsed (build-path FAD-DIRECTORY "fad-2168.txt")
+              'post-2142)
 
-(define (qtr->base-and-date-and-format year name)
-  (define cpqtr (qtr->cal-poly-qtr year name))
-  (list (qtr->date year name)
-        cpqtr
-        (cond [(< cpqtr 2144) 'pre-2144]
-              [else 'post-2142])))
+#;(/ 1 0)
 
-(define filename-roots-and-dates
-  (map (lambda (x) (apply qtr->base-and-date-and-format x))
-       (append
-        '((2008 "fall"))
-        (apply
-         append
-         (for/list ([i (in-range 2009 2016)])
-           (for/list ([j '("winter" "spring" "fall")])
-             (list i j))))
-        '((2016 "winter")
-          (2016 "spring")))))
+;; the first quarter to proces
+(define FIRST-QTR 2088)
+;; the last quarter to process
+(define LAST-QTR 2168)
 
-(define filename-roots
-  (map number->string (map second filename-roots-and-dates)))
+;; these are the "in session" quarters (winter,spring,fall) for
+;; which the fad is generated
+(define MAIN-QTR-ENDINGS (list 2 4 8))
+
+(define qtr-nums
+  (for/list ([qtr (in-range FIRST-QTR (add1 LAST-QTR))]
+             #:when (member (modulo qtr 10)
+                            MAIN-QTR-ENDINGS))
+    qtr))
+
+;; what's the format of this quarter?
+(define (qtr->fformat cpqtr)
+  (cond [(< cpqtr 2144) 'pre-2144]
+        [else 'post-2142]))
 
 (define filenames
-  (for/list ([f filename-roots])
+  (for/list ([f qtr-nums])
     (build-path FAD-DIRECTORY (~a "fad-"f".txt"))))
 
-(define formats (map third filename-roots-and-dates))
-
 (define parsed-qtrs
-  (map file->parsed filenames formats))
+  (map file->parsed filenames
+       (map qtr->fformat qtr-nums)))
 
 (define parsed-qtr-atoms
   (map Parsed-atoms parsed-qtrs))
-
-(define dates (map first filename-roots-and-dates))
-(define qtr-nums (map second filename-roots-and-dates))
 
 #;(define all-dept-names
   (remove-duplicates

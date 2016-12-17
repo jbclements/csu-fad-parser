@@ -41,8 +41,6 @@
          (struct-out FacultyOffering)
          file->parsed
          parse-pages
-         pre-2144-parse-instructor
-         post-2142-parse-instructor
          dept->instructors
          lines->instructor
          instructor-courses
@@ -274,7 +272,8 @@
             (collapse-classification lines)
             (match fformat
               ['pre-2144 (sum-by-instructor/allthesame lines 'a-ccu)]
-              ['post-2142 (sum-of-nums lines 'a-ccu)])
+              ['post-2142 (sum-of-nums lines 'a-ccu)]
+              ['post-2164 (sum-of-nums lines 'a-ccu)])
             (match (atmostone lines 'group-code)
               [#f #f]
               [(? string? s) (cast (string->number s) Natural)])))
@@ -387,7 +386,7 @@
         (dept-pages-detail dept) (dept-pages-name dept)))
      (filter InstructorLines-home?
              (map pre-2144-parse-instructor instructor-sets))]
-    ['post-2142
+    [(or 'post-2142 'post-2164)
      (define instructor-sets
        (post-2142-dept-lines-parser
         (dept-pages-detail dept) (dept-pages-name dept)))
@@ -559,145 +558,6 @@
           (filter (λ ([l : (List Symbol Any)])
                     (not (member (first l) '(dept course-num section))))
                   line)))
-
-#;((: regroup-sections ((Listof KindAssocLine) Format -> (Listof GCourse)))
-(define (regroup-sections course-lines format)
-  (parse/classes/0 course-lines format))
-
-;; these three parsing functions are necessary because when courses
-;; are split into multiple "sequence" lines, the lines after the first
-;; are lacking information and must manually be re-grouped with
-;; their parent line
-
-;; expect special or class or done
-(: parse/classes/0 ((Listof KindAssocLine) Format -> (Listof GCourse)))
-(define (parse/classes/0 lines format)
-  (cond [(empty? lines) empty]
-        [else (match (line-kind (first lines))
-                ['class (parse/classes/1 (rest lines)
-                                         (list (first lines))
-                                         format)]
-                ['extra-sequence
-                 (error 'parse/classes/0
-                        (~a "instructor record started with section continuation: "
-                            (~s (first lines))))]
-                ['special
-                 (cons (first lines)
-                       (parse/classes/2 (rest lines) format))])]))
-
-;; expect special or class or section or done
-(: parse/classes/1
-   ((Listof KindAssocLine) (Listof KindAssocLine) Format -> (Listof GCourse)))
-(define (parse/classes/1 lines so-far format)
-  (cond [(empty? lines) (list (squinch-classes (reverse so-far) format))]
-        [else (match (line-kind (first lines))
-                ['class 
-                 (cons (squinch-classes (reverse so-far) format)
-                       (parse/classes/1 (rest lines)
-                                        (list (first lines))
-                                        format))]
-                ['extra-sequence
-                 (parse/classes/1 (rest lines) (cons (first lines) so-far) format)]
-                ['special
-                 (cons (squinch-classes (reverse so-far) format)
-                       (cons (first lines)
-                             (parse/classes/2 (rest lines) format)))])]))
-
-;; expect special or done
-(: parse/classes/2 ((Listof KindAssocLine) Format -> (Listof GCourse)))
-(define (parse/classes/2 lines format)
-  (cond [(empty? lines) empty]
-        [else (match (line-kind (first lines))
-                ['class
-                 (error 
-                  'parse/classes/2
-                  (~a "instructor record had class after specials: "
-                      (~s (first lines))))]
-                ['extra-sequence
-                 (error 
-                  'parse/classes/2
-                  (~a "instructor record had section after specials: "
-                      (~s (first lines))))]
-                ['special
-                 (cons (first lines)
-                       (parse/classes/2 (rest lines) format))])]))
-
-
-;; given a list of class-lines that refer to the same class,
-;; return a class.
-(: squinch-classes ((Listof KindAssocLine) Format -> GCourse))
-(define (squinch-classes lolines format)
-  (when (equal? (line-kind (first lolines)) 'special)
-    (error 'squinch-classes "expected regular class, got: ~e" lolines))
-  (when (eq? format 'pre-2144)
-    (unless (= 1 (length (filter starred-sequence-line? lolines)))
-      (raise-argument-error 'squinch-classes
-                            "class lines with exactly one starred sequence"
-                            0 lolines)))
-  (define all-field-names 
-    (list->set
-     (remove-duplicates 
-      (apply append (for/list : (Listof (Listof Symbol))
-                      ([line lolines])
-                      (map (inst first Symbol Any) (cdr line)))))))
-  (define once-onlies (set-intersect once-only-topline-fields
-                                     all-field-names))
-  (for ([line (rest lolines)])
-    (for ([field-name (in-set once-onlies)])
-      (when (not (string=? "" (col-ref field-name (cdr line))))
-        (error 'squinch-classes
-               (~a "didn't expect to find field named \""field-name
-                   "\" in sequence: "line)))))
-  (define rest1 (set-subtract all-field-names once-onlies))
-  (define once-somelines (set-intersect rest1 once-only-someline-fields))
-  (match format
-    ['pre-2144
-     (define collapsed-fields
-       (for/fold
-         ([good-line : (U False AssocLine) #f])
-         ([l lolines])
-         (cond [(starred-sequence-line? l)
-                (cons (list 'team-teaching-frac 
-                            (col-ref 'team-teaching-frac (cdr l)))
-                      (for/list : AssocLine
-                        ([f once-somelines])
-                        (list f (col-ref f (cdr l)))))]
-               [else
-                (for ([f once-somelines])
-                  (unless (equal? (col-ref f (cdr l)) "")
-                    (error 'squinch-classes "~a"
-                           (~a "found forbidden field "f
-                               " in non-starred sequence line "(~s l)))))
-                good-line])))
-     (define rest2 (set-subtract (set-subtract rest1 once-somelines)
-                                 (set 'team-teaching-frac)))
-     (cons
-      (list 'kind (line-kind (first lolines)))
-      ((inst append (List Symbol (U String (Listof String))))
-       (for/list : AssocLine
-         ([field-name (in-set once-onlies)])
-         (list field-name (col-ref field-name (cdr (first lolines)))))
-       (cast collapsed-fields AssocLine)
-       (for/list : (Listof (List Symbol (U String (Listof String))))
-         ([field-name rest2])
-         (list field-name
-               (for/list : (Listof String)
-                 ([l lolines])
-                 (col-ref field-name (cdr l)))))))]
-    ['post-2142
-     (: rest2 (Setof Symbol))
-     (define rest2 rest1)
-     (cons (list 'kind (line-kind (first lolines)))
-     (append
-      (for/list : AssocLine
-        ([field-name (in-set once-onlies)])
-        (list field-name (col-ref field-name (cdr (first lolines)))))
-      (for/list : (Listof (List Symbol (Listof String)))
-        ([field-name rest2])
-        (list field-name
-              (for/list : (Listof String)
-                ([l lolines])
-                (col-ref field-name (cdr l)))))))])))
 
 
 ;; okay, this is nasty. In pre-2144, the classes taught by split

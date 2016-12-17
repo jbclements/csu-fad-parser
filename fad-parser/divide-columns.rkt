@@ -3,7 +3,7 @@
 ;; these functions break up lines into association lists, based
 ;; on known formats (column divisions)
 
-(define-type Format (U 'pre-2144 'post-2142))
+(define-type Format (U 'pre-2144 'post-2142 'post-2164))
 (define-type AssocLine
   (Listof (List Symbol String)))
 (define-type BodyLine (U CourseLine SpecialLine))
@@ -39,7 +39,8 @@
 (define ((parse-course-line format) line)
   (cond [(or
           (and (eq? format 'pre-2144) (starts-with-blanks line 38))
-          (and (eq? format 'post-2142) (starts-with-blanks line 34)))
+          (and (eq? format 'post-2142) (starts-with-blanks line 34))
+          (and (eq? format 'post-2164) (starts-with-blanks line 34)))
          ;; special section number
          (cast
           (cons '(kind extra-sequence)
@@ -47,7 +48,8 @@
           CourseLine)]
         ;; non-course-thing
         [(or (and (eq? format 'pre-2144) (starts-with-blanks line 10))
-             (and (eq? format 'post-2142) (starts-with-blanks line 8)))
+             (and (eq? format 'post-2142) (starts-with-blanks line 8))
+             (and (eq? format 'post-2164) (starts-with-blanks line 8)))
          (cast
           (cons '(kind special)
                (string-split-cols special-stuff-split-info line format))
@@ -101,7 +103,8 @@
   (define posn-fun
     (match format
       ['pre-2144 first]
-      ['post-2142 second]))
+      ['post-2142 second]
+      ['post-2164 second]))
   (define len (string-length str))
   (define full-cols-list
     (append
