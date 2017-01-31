@@ -390,7 +390,7 @@
      (define instructor-sets
        (post-2142-dept-lines-parser
         (dept-pages-detail dept) (dept-pages-name dept)))
-     (map post-2142-parse-instructor instructor-sets)]))
+     (map (post-2142-parse-instructor fformat) instructor-sets)]))
 
 ;; these fields can occur only once, in the top line.
 (define once-only-topline-fields
@@ -437,30 +437,33 @@
                  course-lines)))
 
 (: post-2142-parse-instructor
-   ((U (List 'split-appt-remote String (Listof String) String)
-       (List 'home-dept String (Listof String) (Listof String) String)
-       (List 'no-class-instructor String (Listof String) String))
-    -> InstructorLines))
-(define (post-2142-parse-instructor instructor-lines)
+   (Format
+    ->
+    ((U (List 'split-appt-remote String (Listof String) String)
+        (List 'home-dept String (Listof String) (Listof String) String)
+        (List 'no-class-instructor String (Listof String) String))
+     -> InstructorLines)))
+(define ((post-2142-parse-instructor fformat) instructor-lines)
+  
   (match instructor-lines
     [(list 'split-appt-remote header-line specials summary-line)
      (InstructorLines
-      (parse-instructor-header-line header-line 'post-2142)
-      (parse-summary-line summary-line 'post-2142)
-      (map (parse-course-line 'post-2142) specials)
+      (parse-instructor-header-line header-line fformat)
+      (parse-summary-line summary-line fformat)
+      (map (parse-course-line fformat) specials)
       #f)]
     [(list 'home-dept header-line specials regulars summary-line)
      (InstructorLines
-      (parse-instructor-header-line header-line 'post-2142)
-      (parse-summary-line summary-line 'post-2142)
-      (append (map (parse-course-line 'post-2142) specials)
-              (map (parse-course-line 'post-2142) regulars))
+      (parse-instructor-header-line header-line fformat)
+      (parse-summary-line summary-line fformat)
+      (append (map (parse-course-line fformat) specials)
+              (map (parse-course-line fformat) regulars))
       #t)]
     [(list 'no-class-instructor header-line specials summary-line)
      (InstructorLines
-      (parse-instructor-header-line header-line 'post-2142)
-      (parse-summary-line summary-line 'post-2142)
-      (map (parse-course-line 'post-2142) specials)
+      (parse-instructor-header-line header-line fformat)
+      (parse-summary-line summary-line fformat)
+      (map (parse-course-line fformat) specials)
       #t)]))
 
 ;; strip the information about courses out to transform an InstructorLines

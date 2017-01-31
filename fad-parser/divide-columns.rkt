@@ -73,7 +73,7 @@
 
 
 (define-type SplitInfo (Listof SplitInfoField))
-(define-type SplitInfoField (List (List Natural Natural)
+(define-type SplitInfoField (List (List Natural Natural Natural)
                                   FmtLabel
                                   Symbol))
 
@@ -99,17 +99,17 @@
 (: string-split-cols (SplitInfo String Format
                                 -> (Listof (List Symbol String))))
 (define (string-split-cols split-info str format)
-  (: posn-fun ((List Natural Natural) -> Natural))
+  (: posn-fun ((List Natural Natural Natural) -> Natural))
   (define posn-fun
     (match format
       ['pre-2144 first]
       ['post-2142 second]
-      ['post-2164 second]))
+      ['post-2164 third]))
   (define len (string-length str))
   (define full-cols-list
     (append
      (map posn-fun
-          (map (inst first (List Natural Natural) Any)
+          (map (inst first (List Natural Natural Natural) Any)
                split-info))
      (list (string-length str))))
   (for/list ([start full-cols-list]
@@ -129,60 +129,61 @@
 
 (: instructor-header-split-info SplitInfo)
 (define instructor-header-split-info
-  '(((0 0) id id)
-    ((13 10) alpha name) 
-    ((41 38) alpha rank) 
-    ((63 59) decimal tsf)
-    ((68 65) decimal iaf) 
-    ((80 71) alphanum adm-lvl)
-    ((93 86) decimal osf)
-    ((101 91) alphanum split) 
-    ((124 116) alphanum= split-frac)
-    ((130 127) decimal iff)))
+  '(((0 0 0) id id)
+    ((13 10 12) nums other-id)
+    ((13 10 29) alpha name)
+    ((41 38 53) alpha rank)
+    ((63 59 74) decimal tsf)
+    ((68 65 81) decimal iaf) 
+    ((80 71 88) alphanum adm-lvl)
+    ((93 86 106) decimal osf)
+    ((101 91 113) alphanum split) 
+    ((124 116 136) alphanum= split-frac)
+    ((130 127 148) decimal iff)))
 
 (: course-info-split-info SplitInfo)
 (define course-info-split-info
-  '(((0 0) alpha dept)
-    ((12 7) course-num course-num)
-    ((22 12) nums section)
-    ((26 19) nums discipline)
-    ((31 25) alphanum level)
-    ((34 29) nums enrollment)
-    ((38 33) seq-num sequence)
-    ((43 37) nums classification)
-    ((46 40) decimal a-ccu)
-    ((51 46) alpha days)
-    ((58 52) nums time-start)
-    ((63 57) nums time-stop)
-    ((68 62) decimal tba-hours)
-    ((75 68) alphanum facility)
-    ((79 73) alphanum space)
-    ((86 79) alphanum facility-type)
-    ((90 84) nums group-code)
-    ((95 89) decimal team-teaching-frac)
-    ((101 95) decimal scu)
-    ((109 102) decimal faculty-contact-hours)
-    ((114 109) decimal direct-wtu)
-    ((121 116) decimal indirect-wtu)
-    ((127 123) decimal total-wtu)))
+  '(((0 0 0) alpha dept)
+    ((12 7 7) course-num course-num)
+    ((22 12 12) nums section)
+    ((26 19 19) nums discipline)
+    ((31 25 25) alphanum level)
+    ((34 29 29) nums enrollment)
+    ((38 33 33) seq-num sequence)
+    ((43 37 37) nums classification)
+    ((46 40 40) decimal a-ccu)
+    ((51 46 46) alpha days)
+    ((58 52 52) nums time-start)
+    ((63 57 57) nums time-stop)
+    ((68 62 62) decimal tba-hours)
+    ((75 68 68) alphanum facility)
+    ((79 73 73) alphanum space)
+    ((86 79 79) alphanum facility-type)
+    ((90 84 84) nums group-code)
+    ((95 89 89) decimal team-teaching-frac)
+    ((101 95 95) decimal scu)
+    ((109 102 102) decimal faculty-contact-hours)
+    ((114 109 109) decimal direct-wtu)
+    ((121 116 116) decimal indirect-wtu)
+    ((127 123 123) decimal total-wtu)))
 
 (: special-stuff-split-info SplitInfo)
 (define special-stuff-split-info
-  '(((0 0) alpha special)
-    ((101 95) decimal scu)
-    ((109 102) decimal faculty-contact-hours)
-    ((114 109) decimal direct-wtu)
-    ((121 116) decimal indirect-wtu)))
+  '(((0 0 0) alpha special)
+    ((101 95 95) decimal scu)
+    ((109 102 102) decimal faculty-contact-hours)
+    ((114 109 109) decimal direct-wtu)
+    ((121 116 116) decimal indirect-wtu)))
 
 (: instructor-summary-split-info SplitInfo)
 (define instructor-summary-split-info
-  '(((0 0) alpha total-individual)
-    ((34 28) nums enrolled)
-    ((101 94) decimal scu)
-    ((109 101) decimal faculty-contact-hours)
-    ((114 107) decimal direct-wtu)
-    ((121 114) decimal indirect-wtu)
-    ((127 121) decimal total-wtu)))
+  '(((0 0 0) alpha total-individual)
+    ((34 28 28) nums enrolled)
+    ((101 94 94) decimal scu)
+    ((109 101 101) decimal faculty-contact-hours)
+    ((114 107 107) decimal direct-wtu)
+    ((121 114 114) decimal indirect-wtu)
+    ((127 121 121) decimal total-wtu)))
 
 (module+ test
 
@@ -207,6 +208,7 @@
     " XXXXX5705    E I ELGHANDOUR          ASSOC PROF/LECT C    1.000  0.000               0.000  SPLIT APPT 52176       IFF=0.467   0.533"
     'post-2142)
    '((id "XXXXX5705")
+     (other-id "")
      (name "E I ELGHANDOUR")
      (rank "ASSOC PROF/LECT C")
      (tsf "1.000")
@@ -216,5 +218,26 @@
      (split "SPLIT APPT 52176")
      (split-frac "IFF=0.467")
      (iff "0.533"))
-   ))
+   )
+
+  (check-equal?
+   (string-split-cols
+    instructor-header-split-info
+    " XXXXX8231  000000000017182  K T DEVANEY             PROFESSOR/LECT D     0.867  0.000                    0.000  SPLIT APPT 20108       IFF=0.200   0.667"
+    'post-2164)
+   '((id "XXXXX8231")
+     (other-id "000000000017182")
+     (name "K T DEVANEY")
+     (rank "PROFESSOR/LECT D")
+     (tsf "0.867")
+     (iaf "0.000" )
+     (adm-lvl "")
+     (osf "0.000")
+     (split "SPLIT APPT 20108")
+     (split-frac "IFF=0.200")
+     (iff "0.667"))
+   )
+
+  
+  )
 

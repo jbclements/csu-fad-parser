@@ -17,7 +17,9 @@
          (struct-out summary-page)
          (contract-out
           [file->fad-pages (-> path-string?
-                               (symbols 'pre-2144 'post-2142)
+                               (symbols 'pre-2144
+                                        'post-2142
+                                        'post-2164)
                                fad-pages?)]
           [summary-column-ref
            (-> symbol? summary-row? number?)])
@@ -78,7 +80,8 @@
   (define regexp-pairings
     (match format
       ['pre-2144 pre-2144-regexp-pairings]
-      ['post-2142 post-2142-regexp-pairings]))
+      ['post-2142 post-2142-regexp-pairings]
+      ['post-2164 post-2164-regexp-pairings]))
   (define (get-token)
     (match-define (list pre line post) (lines-generator))
     ;; eliminate blank lines ahead of time:
@@ -127,6 +130,9 @@
 
 (define page-header-minimal-regexp
   #px"^\\s*CHANCELLOR'S OFFICE OF CALIFORNIA STATE UNIVERSITIES\\s*$")
+
+(define page-header-minimal-regexp-post-2164
+  #px"^\\s*[A-Z]+\\s+[0-9]+,\\s+[0-9]+\\s*CHANCELLOR'S OFFICE OF CALIFORNIA STATE UNIVERSITIES\\s*$")
 
 (define page-assignments-sub-header-regexp
   ;; always 5-char JOB and PGM?
@@ -195,6 +201,7 @@
    (list(regexp-quote "  TYPE               APPTS    FTEF      WTU        WTU       WTU       WTU        WTU   WTU/FTEF WTU/FTEF     SCU       FTES")
         token-SUMMARY-HDR2)
    (list #px"^\\s+FACULTY ID\\s+NAME\\s+RANGE CODE\\s+TSF\\s+IAF\\s+ADM-LVL\\s+OSF\\s+IFF"
+         
          token-ASSIGN-HDR1)
    (list (regexp-quote "     SUBJ   COUR SUFF SEC DISC   L ENR    S CS A-CCU DAYS  BEG  END    TBA  FACL SPACE   F  GRP TTF     SCU    FCH  D-WTU I-WTU   T-WTU     ")
          token-ASSIGN-HDR2)
@@ -213,7 +220,36 @@
    (list #px"^[ \\*]*\\*\\*[ \\*]*$" token-INSTRUCTOR-DIV)))
 
 ;; oh dear lord... things are different again in 2168?
-
+(define post-2164-regexp-pairings
+  (list
+   (list #px"^\\s*\\d+\\s*$" token-STRAY-NUM-LINE)
+   (list page-header-2-regexp token-PAGE-HEADER-LINE)
+   (list page-header-minimal-regexp-post-2164 token-PAGE-HEADER-MINIMAL-LINE)
+   (list page-assignments-sub-header-regexp token-PAGE-ASSIGNMENTS-LINE)
+   (list page-summary-sub-header-2-regexp token-PAGE-SUMMARY-2-LINE)
+   (list department-line-2-regexp token-DEPARTMENT-LINE)
+   (list no-department-line-regexp token-NO-DEPARTMENT-LINE)
+   (list (regexp-quote " FACULTY            NO. OF    APPT     CLASS    SUPERVSN    DIRECT   INDIRECT    TOTAL   DIRECT   TOTAL      TOTAL      TOTAL  SCU/FTEF  SFR")
+         token-SUMMARY-HDR1)
+   (list(regexp-quote "  TYPE               APPTS    FTEF      WTU        WTU       WTU       WTU        WTU   WTU/FTEF WTU/FTEF     SCU       FTES")
+        token-SUMMARY-HDR2)
+   (list #px"^\\s+SSN\\s+EMPLOYEE ID\\s+NAME\\s+RANGE CODE\\s+TSF\\s+IAF\\s+ADM-LVL\\s+OSF\\s+IFF"
+         token-ASSIGN-HDR1)
+   (list (regexp-quote "     SUBJ   COUR SUFF SEC DISC   L ENR    S CS A-CCU DAYS  BEG  END    TBA  FACL SPACE   F  GRP TTF     SCU    FCH  D-WTU I-WTU   T-WTU     ")
+         token-ASSIGN-HDR2)
+   (list #px"^\\s*ASSIGNED TIME ACTIVITY\\s*$" token-ASSIGN-HDR3)
+   (list #px"^\\s+TSF\\s+IAF\\s+OSF\\s+IFF\\s*$"
+         token-INSTRUCTOR-HDR)
+   (list course-header-regexp
+         token-INSTRUCTOR-COURSE-HDR)
+   (list split-appointment-regexp
+         token-INSTRUCTOR-SPLIT-APPOINTMENT-LINE)
+   (list split-appointment-note-1-regexp
+         token-INSTRUCTOR-SPLIT-APPOINTMENT-NOTE-1)
+   (list split-appointment-note-2-regexp
+         token-INSTRUCTOR-SPLIT-APPOINTMENT-NOTE-2)
+   (list #px"^[ _]*__[ _]*$" token-INSTRUCTOR-TOTS-DIV)
+   (list #px"^[ \\*]*\\*\\*[ \\*]*$" token-INSTRUCTOR-DIV)))
 
 
 
@@ -371,7 +407,8 @@
   (define parser
     (match format
       ['pre-2144 pre-2144-page-parser]
-      ['post-2142 post-2142-page-parser]))
+      ['post-2142 post-2142-page-parser]
+      ['post-2164 post-2142-page-parser]))
   (parser (file->lines-thunk filename format)))
 
 ;; export tokens for exploration:
@@ -379,7 +416,8 @@
   (define regexp-pairings
     (match format
       ['pre-2144 pre-2144-regexp-pairings]
-      ['post-2142 post-2142-regexp-pairings]))
+      ['post-2142 post-2142-regexp-pairings]
+      ['post-2164 post-2142-regexp-pairings]))
   (define line->token (page-line-tokenize regexp-pairings))
   (map line->token (file->lines filename)))
 
@@ -608,9 +646,33 @@
     "       DEPARTMENTS. ACTUAL VALUES OVER ALL DEPT APPOINTMENTS ARE: D-WTU= 7.3, I-WTU= 0.0, T-WTU= 7.3")
    (token-INSTRUCTOR-SPLIT-APPOINTMENT-NOTE-2 '()))
 
-  #;(check-equal?
-   ((page-line-tokenize post-2142-regexp-pairings)
-   "   SSN        EMPLOYEE ID     NAME                   RANGE CODE            TSF    IAF     ADM-LVL           OSF                                      IFF"))
+  (check-equal?
+   (regexp-match?
+    #px"^\\s+SSN\\s+EMPLOYEE ID\\s+NAME\\s+RANGE CODE\\s+TSF\\s+IAF\\s+ADM-LVL\\s+OSF\\s+IFF"
+    "   SSN        EMPLOYEE ID     NAME                   RANGE CODE            TSF    IAF     ADM-LVL           OSF                                      IFF"
+    )
+   true)
+  (check-equal?
+   ((page-line-tokenize post-2164-regexp-pairings)
+    "   SSN        EMPLOYEE ID     NAME                   RANGE CODE            TSF    IAF     ADM-LVL           OSF                                      IFF")
+   (token-ASSIGN-HDR1 '()))
+
+
+  (check-equal?
+   (regexp-match?
+    #px"^[A-Z]+\\s+[0-9]+,\\s+[0-9]+\\s*CHANCELLOR'S OFFICE OF CALIFORNIA STATE UNIVERSITIES\\s*$"
+    "NOVEMBER 23, 2016                   CHANCELLOR'S OFFICE OF CALIFORNIA STATE UNIVERSITIES")
+   #t)
+  
+  (check-equal?
+   ((page-line-tokenize post-2164-regexp-pairings)
+    "NOVEMBER 23, 2016                   CHANCELLOR'S OFFICE OF CALIFORNIA STATE UNIVERSITIES")
+   (token-PAGE-HEADER-MINIMAL-LINE '()))
+
+  (check-equal?
+   ((page-line-tokenize post-2164-regexp-pairings)
+    "                                                                           TSF    IAF                       OSF                                      IFF")
+   (token-INSTRUCTOR-HDR '()))
   )
 
 

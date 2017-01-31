@@ -13,10 +13,15 @@
 
 (define FAD-DIRECTORY (build-path "/Users/clements/clements/datasets/FAD"))
 
+#;(
+(require explorer
+         "fad-to-pages.rkt")
+(explore (file->tokens (build-path FAD-DIRECTORY "fad-2168.txt")
+                       'post-2164)))
 
 ;; let's find bugs in this file:
 #;(file->parsed (build-path FAD-DIRECTORY "fad-2168.txt")
-              'post-2142)
+              'post-2164)
 
 #;(/ 1 0)
 
@@ -38,7 +43,8 @@
 ;; what's the format of this quarter?
 (define (qtr->fformat cpqtr)
   (cond [(< cpqtr 2144) 'pre-2144]
-        [else 'post-2142]))
+        [(< cpqtr 2168) 'post-2142]
+        [else 'post-2164]))
 
 (define filenames
   (for/list ([f qtr-nums])
