@@ -1,6 +1,7 @@
 #lang racket
 
-(require "pages-to-parsed-tr.rkt")
+(require "pages-to-parsed-tr.rkt"
+         "one-quarter-data.rkt")
 
 (provide/contract
           [parsed-qtrs (listof Parsed?)]
@@ -9,26 +10,12 @@
           #;[all-dept-names (listof string?)])
 
 ;; this file reads in all of the FADs that we have, and 
-;; provides them as a list of depts.
-
-(define FAD-DIRECTORY (build-path "/Users/clements/clements/datasets/FAD"))
-
-#;(
-(require explorer
-         "fad-to-pages.rkt")
-(explore (file->tokens (build-path FAD-DIRECTORY "fad-2168.txt")
-                       'post-2164)))
-
-;; let's find bugs in this file:
-#;(file->parsed (build-path FAD-DIRECTORY "fad-2168.txt")
-              'post-2164)
-
-#;(/ 1 0)
+;; provides them as 'Parsed's
 
 ;; the first quarter to proces
 (define FIRST-QTR 2088)
 ;; the last quarter to process
-(define LAST-QTR 2168)
+(define LAST-QTR 2172)
 
 ;; these are the "in session" quarters (winter,spring,fall) for
 ;; which the fad is generated
@@ -40,19 +27,8 @@
                             MAIN-QTR-ENDINGS))
     qtr))
 
-;; what's the format of this quarter?
-(define (qtr->fformat cpqtr)
-  (cond [(< cpqtr 2144) 'pre-2144]
-        [(< cpqtr 2168) 'post-2142]
-        [else 'post-2164]))
-
-(define filenames
-  (for/list ([f qtr-nums])
-    (build-path FAD-DIRECTORY (~a "fad-"f".txt"))))
-
 (define parsed-qtrs
-  (map file->parsed filenames
-       (map qtr->fformat qtr-nums)))
+  (map qtr->parsed qtr-nums))
 
 (define parsed-qtr-atoms
   (map Parsed-atoms parsed-qtrs))
