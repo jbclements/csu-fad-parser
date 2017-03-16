@@ -10,4 +10,5 @@
                "plot-lib"
                "typed-racket-lib"))
 (define build-deps '("rackunit-lib"
-                     "wxme-lib"))
+                     "wxme-lib"
+                     "typed-racket-more"))

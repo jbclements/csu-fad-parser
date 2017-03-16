@@ -5,9 +5,12 @@
 
 (require "pages-to-parsed-tr.rkt"
          "one-quarter-data.rkt"
+         "make-connection.rkt"
          db)
 
 ;; oog... must create db connection, stopping here.
+
+(define connection (make-connection))
 
 (define qtr-nums '(2172))
 (define parsed-qtrs (map qtr->parsed qtr-nums))
