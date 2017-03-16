@@ -1,7 +1,10 @@
 #lang racket
 
 (require "pages-to-parsed-tr.rkt"
-         "all-data.rkt")
+         "one-quarter-data.rkt")
+
+(define qtr-nums '(2172))
+(define parsed-qtrs (map qtr->parsed qtr-nums))
 
 (define (as-int s)
   (real-as-int (string->number/0 s)))
