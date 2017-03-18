@@ -10,7 +10,11 @@
 
 ;; oog... must create db connection, stopping here.
 
-(define connection (make-connection))
+(define conn (make-connection))
+
+(require explorer)
+(explore (query-rows conn
+            "SELECT * FROM instructors;"))
 
 (define qtr-nums '(2172))
 (define parsed-qtrs (map qtr->parsed qtr-nums))
