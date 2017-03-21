@@ -2,7 +2,9 @@
 
 (require db
          memoize
-         racket/contract)
+         racket/contract
+         racket/match
+         racket/file)
 
 ;; this file provides the function that makes a connection to the
 ;; fad database, and also provides a parameter that allows a program
@@ -18,26 +20,33 @@
   ;; a replacement connection-maker for use directly on desmond
   [local-connect (-> connection?)]))
 
-;; the user to use for making the connection
-(define USER "grader")
-;; terrible low-security password
-(define PASSWORD "abc123")
+(define local-db-info-file
+  "/Users/clements/.ssh/fad-db-info.rktd")
+
+;; the user/password to use for the connection
+(define-values (db-user db-password)
+  (cond [(file-exists? local-db-info-file)
+         (match (file->value local-db-info-file)
+           [(list (list 'user db-user) (list 'password db-passwd))
+            (values db-user db-passwd)])]
+        [else
+         (values "fad-user" "abc123")]))
 ;; the database to connect to
 (define DATABASE "fad")
 
 ;; connect to a database using tcp
 (define (tcp-connect)
   (postgresql-connect
-   #:user USER
-   #:password PASSWORD
+   #:user db-user
+   #:password db-password
    #:port 13432
    #:database DATABASE))
 
 ;; connect to the local database
 (define (local-connect)
   (error 'must-update-to-postgresql)
-  #;(postgresql-connect #:user USER
-                      #:password PASSWORD
+  #;(postgresql-connect #:user db-user
+                      #:password db-password
                       #:port 5432
                       #:database DATABASE))
 
