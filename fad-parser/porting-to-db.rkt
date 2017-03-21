@@ -12,26 +12,6 @@
 (define (real-as-int r)
   (inexact->exact (round (* 1000 r))))
 
-(define all-instructors
-  (remove-duplicates
-   (apply
-    append
-    (for/list ([q parsed-qtrs]
-               [qtr qtr-nums])
-      (apply
-       append
-       (for/list  ([dept (Parsed-depts q)])
-         (for/list ([instr (Dept-instructors dept)])
-           (define hdr (Instructor-header instr))
-           (define soc (match (col-ref 'id hdr)
-                         [(regexp #px"0 (.*)" (list dc soc)) soc]
-                         [(regexp #px"XXXXX[0-9]{4}" (list soc)) soc]))
-           (list (col-ref 'name hdr)
-                 (col-ref 'name hdr)
-                 soc))))))))
-
-(define (export-instructors)
-  (export-data "/tmp/instructors.txt" all-instructors))
 
 
 (define (normalize-rank rank)
