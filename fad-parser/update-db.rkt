@@ -8,13 +8,38 @@
          "make-connection.rkt"
          db)
 
-;; oog... must create db connection, stopping here.
+
+;; given a filename and a list of records (lists),
+;; output the records in tab-separated format to the given filename
+(define (export-data filename records)
+  (with-output-to-file filename
+    (lambda ()
+      (for ([c (in-list records)])
+        (define data
+          (for/list ([d (in-list c)])
+            (match d
+              [#f "\\N"]
+              ['null "\\N"]
+              [(? string? s)
+               (when (ormap (λ(ch)
+                              (member ch '(#\tab #\newline #\\)))
+                            (string->list s))
+                 (error 'export-data
+                        "no bad chars allowed in strings: ~e\n"
+                        s))
+               s]
+              [(? exact-integer? i) i])))
+        (display (apply ~a (append (add-between data "\t") (list "\n"))))))
+    #:exists 'truncate))
 
 (define conn (make-connection))
 
 (require explorer)
-(explore (query-rows conn
-            "SELECT * FROM instructors;"))
+
+(define existing-instructors
+  (map vector->list
+       (query-rows conn
+                   "SELECT * FROM instructors;")))
 
 (define qtr-nums '(2172))
 (define parsed-qtrs (map qtr->parsed qtr-nums))
@@ -43,8 +68,23 @@
                  (col-ref 'name hdr)
                  soc))))))))
 
+(define new-instructors
+  (remove* existing-instructors all-instructors))
+
+
+
+new-instructors
+
+;; oops... not enough privileges.
+(define (add-new-instructors!)
+  (for/list ([i (in-list new-instructors)])
+    (apply
+     query-exec conn
+     "INSERT INTO instructors VALUES ($1,$2,$3);"
+     i)))
+
 (define (export-instructors)
-  (export-data "/tmp/instructors.txt" all-instructors))
+  (export-data "/tmp/instructors.txt" new-instructors))
 
 (error 'stop "here")
 
@@ -88,26 +128,6 @@
   (export-data  "/tmp/instructorstatuses.txt" all-instructor-statuses))
 
 
-(define (export-data filename records)
-  (with-output-to-file filename
-    (lambda ()
-      (for ([c (in-list records)])
-        (define data
-          (for/list ([d (in-list c)])
-            (match d
-              [#f "\\N"]
-              ['null "\\N"]
-              [(? string? s)
-               (when (ormap (λ(ch)
-                              (member ch '(#\tab #\newline #\\)))
-                            (string->list s))
-                 (error 'export-data
-                        "no bad chars allowed in strings: ~e\n"
-                        s))
-               s]
-              [(? exact-integer? i) i])))
-        (display (apply ~a (append (add-between data "\t") (list "\n"))))))
-    #:exists 'truncate))
 
 #;(define (export-course-names)
   (export-data "/tmp/courses.txt" all-course-names))
