@@ -8,6 +8,7 @@
          "make-connection.rkt"
          db)
 
+(define qtr-nums '(2174))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
@@ -34,14 +35,12 @@
 
 (define conn (make-connection))
 
-(require explorer)
-
 (define existing-instructors
   (map vector->list
        (query-rows conn
                    "SELECT * FROM instructors;")))
 
-(define qtr-nums '(2172))
+
 (define parsed-qtrs (map qtr->parsed qtr-nums))
 
 (define (as-int s)
