@@ -1,46 +1,71 @@
 #lang racket
 
-;; WORK IN PROGRESS
+;; used to left-justify a FAD report by trimming all-blank columns.
 
-(define l
-  (file->lines "/Users/clements/clements/datasets/FAD/fad-2174.txt"))
-
-;; given a number n, return #t if there's any information (characters
-;; other than space and \f) in the first 'n' columns
-;; could be more efficient, but seems to work fine for several thousand
-;; lines of input.
-(define (info? lines cols)
-  ;; the first n chars of each line
-  (define prefix-strs
-    (remove-duplicates (map (first-n-cols cols) lines)))
-  ;; all of the chars in any of the strings
-  (define prefix-chars
-    (remove-duplicates
-     (string->list (apply string-append prefix-strs))))
-  ((compose not empty?)
-   (remove*
-    '(#\space #\page)
-    prefix-chars)))
-
-(define (first-n-cols cols)
-  (λ (str)
-    (substring str 0
-               (min cols (string-length str)))))
-
-(define maxstrlen (apply max (map string-length l)))
-(define (first-interesting-column lines)
-  (sub1
-   (for/first ([cols (in-range maxstrlen)]
-               #:when (info? lines cols))
-     cols)))
-
-(require rackunit)
-(check-equal? (first-interesting-column '("abc")) 0)
-(check-equal?
- (first-interesting-column '("    abcd" "   def" "     ghi")) 3)
+(provide first-interesting-column/file)
 
 
-(define cols-to-discard (first-interesting-column l))
+;; is this character interesting?
+(define (interesting? ch)
+  (not (or (eq? ch #\space)
+           (eq? ch #\page))))
+
+;; return the index of the first interesting column, or #f
+;; if there are no interesting columns
+(define (first-interesting-column str)
+  (for/first ([i (in-range (string-length str))]
+              #:when (interesting? (string-ref str i)))
+    i))
 
 
+;; return the smallest "first interesting column" from the
+;; given lines
+(define (first-interesting-column/lines lines)
+  (define col-idxes
+    (filter (λ (x) x)
+            (map first-interesting-column
+                 lines)))
+  (cond [(empty? col-idxes)
+         (raise-argument-error
+          'first-interesting-column
+          "lines containing at least one interesting character"
+          0 lines)]
+        [else
+         (apply min col-idxes)]))
+
+;; find the first interesting column in any line in the file.
+(define (first-interesting-column/file f)
+  (first-interesting-column/lines (file->lines f)))
+
+(module+ test
+
+  (require rackunit)
+
+  (check-equal? (first-interesting-column "abc") 0)
+  (check-equal? (first-interesting-column " \fabc") 2)
+  (check-equal? (first-interesting-column " \f  ") #f)
+
+  (check-equal? (first-interesting-column/lines '("abc")) 0)
+  (check-equal?
+   (first-interesting-column/lines
+    '("    abcd" "   def" "     ghi")) 3))
+
+
+
+;; exploring...
+#;(for/list ([f (in-directory "/Users/clements/clements/datasets/FAD/")]
+           #:when (regexp-match? #px"fad-[[:digit:]]+.txt$" f))
+  (define col (first-interesting-column/file f))
+  (cond [(<= 2 col) 'okay]
+        [else
+         (define shortest-lines
+           (filter (λ (l)
+                     (define lcol (first-interesting-column l))
+                     (and (number? lcol) (= lcol col)))
+                   (file->lines f)))
+         (list f
+               col
+               (take
+                shortest-lines
+                (min 3 (length shortest-lines))))]))
 
