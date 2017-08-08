@@ -8,7 +8,7 @@
 (require parser-tools/lex
          parser-tools/yacc
          racket/generator
-         explorer)
+         "trim-leading-spaces.rkt")
 
 (provide (struct-out fad-pages)
          (struct-out dept-pages)
@@ -19,7 +19,8 @@
           [file->fad-pages (-> path-string?
                                (symbols 'pre-2144
                                         'post-2142
-                                        'post-2164)
+                                        'post-2164
+                                        '2174-fmt)
                                fad-pages?)]
           [summary-column-ref
            (-> symbol? summary-row? number?)])
@@ -68,20 +69,29 @@
 ;; pre-2144
 ;; post-2142
 (define (file->lines-thunk filename format)
+  (define left-margin-chars (first-interesting-column/file filename))
+  (printf "first interesting column: ~v\n"
+          left-margin-chars)
+  ;; it would probably be cleaner to apply this to all files, but
+  ;; it's easier just to apply it to the new ones:
+  (define (trim-left-margin str-or-eof)
+    (match format
+      ['2174-fmt
+       (cond [(not (string? str-or-eof)) str-or-eof]
+             [(< (string-length str-or-eof) left-margin-chars) ""]
+             [else (substring str-or-eof left-margin-chars)])]
+      [other
+       str-or-eof]))
   (define fileport (open-input-file filename))
   (port-count-lines! fileport)
   (define lines-generator
     (sequence->generator
      (in-port (lambda (p) 
                 (list (lexer-pos p)
-                      (read-line p)
+                      (trim-left-margin (read-line p))
                       (lexer-pos p)))
               fileport)))
-  (define regexp-pairings
-    (match format
-      ['pre-2144 pre-2144-regexp-pairings]
-      ['post-2142 post-2142-regexp-pairings]
-      ['post-2164 post-2164-regexp-pairings]))
+  (define regexp-pairings (fmt->regexp-pairings format))
   (define (get-token)
     (match-define (list pre line post) (lines-generator))
     ;; eliminate blank lines ahead of time:
@@ -153,7 +163,7 @@
   #px"^\\s*SCHOOL - 52 ENGINEERING\\s+DEPARTMENT - (.*)")
 
 (define no-department-line-regexp
-  #px"^\\s*SCHOOL - 52 ENGINEERING\\s+$")
+  #px"^\\s*SCHOOL - 52 ENGINEERING\\s*$")
 
 (define course-header-regexp
   #px"^\\s+COURSE ID   SECT HEGIS LVL ENR  LS CS A-CCU DAYS  BEG  END   TBA  FACL SPACE/TYPE GRP   TTF    SCU    FCH  D-WTU  I-WTU  T-WTU")
@@ -250,6 +260,51 @@
          token-INSTRUCTOR-SPLIT-APPOINTMENT-NOTE-2)
    (list #px"^[ _]*__[ _]*$" token-INSTRUCTOR-TOTS-DIV)
    (list #px"^[ \\*]*\\*\\*[ \\*]*$" token-INSTRUCTOR-DIV)))
+
+;; there must be a better way of doing this...
+(define 2174-regexp-pairings
+  (list
+   (list #px"^\\s*\\d+\\s*$" token-STRAY-NUM-LINE)
+   (list page-header-2-regexp token-PAGE-HEADER-LINE)
+   (list page-header-minimal-regexp-post-2164 token-PAGE-HEADER-MINIMAL-LINE)
+   (list page-assignments-sub-header-regexp token-PAGE-ASSIGNMENTS-LINE)
+   (list page-summary-sub-header-2-regexp token-PAGE-SUMMARY-2-LINE)
+   (list department-line-2-regexp token-DEPARTMENT-LINE)
+   (list no-department-line-regexp token-NO-DEPARTMENT-LINE)
+   (list (regexp-quote " FACULTY           NO. OF    APPT    CLASS    SUPERVSN   DIRECT   INDIRECT    TOTAL  \
+DIRECT   TOTAL      TOTAL     TOTAL  SCU/FTEF SFR")
+         token-SUMMARY-HDR1)
+   (list(regexp-quote "  TYPE              APPTS    FTEF     WTU        WTU      \
+WTU       WTU        WTU  WTU/FTEF WTU/FTEF     SCU      FTES")
+        token-SUMMARY-HDR2)
+   (list #px"^\\s+SSN\\s+EMPLOYEE ID\\s+NAME\\s+RANGE CODE\\s+TSF\\s+IAF\\s+ADM-LVL\\s+OSF\\s+IFF"
+         token-ASSIGN-HDR1)
+   (list (regexp-quote "     SUBJ   COUR SUFF SEC DISC   L ENR    S CS \
+A-CCU DAYS  BEG  END    TBA  FACL SPACE   F  GRP TTF     SCU    FCH  D-WTU I-WTU   T-WTU     ")
+         token-ASSIGN-HDR2)
+   (list #px"^\\s*ASSIGNED TIME ACTIVITY\\s*$" token-ASSIGN-HDR3)
+   (list #px"^\\s+TSF\\s+IAF\\s+OSF\\s+IFF\\s*$"
+         token-INSTRUCTOR-HDR)
+   (list #px"^  COURSE ID  SECT HEGIS LVL ENR  LS CS \
+A-CCU DAYS BEG  END   ?TBA ? FACL SPACE/TYPE GRP  TTF    \
+SCU    FCH  D-WTU I-WTU  T-WTU"
+         token-INSTRUCTOR-COURSE-HDR)
+   (list split-appointment-regexp
+         token-INSTRUCTOR-SPLIT-APPOINTMENT-LINE)
+   (list split-appointment-note-1-regexp
+         token-INSTRUCTOR-SPLIT-APPOINTMENT-NOTE-1)
+   (list split-appointment-note-2-regexp
+         token-INSTRUCTOR-SPLIT-APPOINTMENT-NOTE-2)
+   (list #px"^[ _]*__[ _]*$" token-INSTRUCTOR-TOTS-DIV)
+   (list #px"^[ \\*]*\\*\\*[ \\*]*$" token-INSTRUCTOR-DIV)))
+
+;; given a format, return the set of regexp pairings to use
+(define (fmt->regexp-pairings fmt)
+  (match fmt
+    ['pre-2144 pre-2144-regexp-pairings]
+    ['post-2142 post-2142-regexp-pairings]
+    ['post-2164 post-2164-regexp-pairings]
+    ['2174-fmt 2174-regexp-pairings]))
 
 
 
@@ -406,20 +461,18 @@
 (define (file->pages filename format)
   (define parser
     (match format
-      ['pre-2144 pre-2144-page-parser]
-      ['post-2142 post-2142-page-parser]
-      ['post-2164 post-2142-page-parser]))
+      ['pre-2144  pre-2144-page-parser]
+      [other      post-2142-page-parser]))
   (parser (file->lines-thunk filename format)))
 
 ;; export tokens for exploration:
 (define (file->tokens filename format)
   (define regexp-pairings
-    (match format
-      ['pre-2144 pre-2144-regexp-pairings]
-      ['post-2142 post-2142-regexp-pairings]
-      ['post-2164 post-2142-regexp-pairings]))
+    (fmt->regexp-pairings format))
   (define line->token (page-line-tokenize regexp-pairings))
   (map line->token (file->lines filename)))
+
+
 
 ;; try it out:
 ;;(define a (file->pages "fad-2008-fall.txt"))
@@ -660,19 +713,55 @@
 
   (check-equal?
    (regexp-match?
-    #px"^[A-Z]+\\s+[0-9]+,\\s+[0-9]+\\s*CHANCELLOR'S OFFICE OF CALIFORNIA STATE UNIVERSITIES\\s*$"
-    "NOVEMBER 23, 2016                   CHANCELLOR'S OFFICE OF CALIFORNIA STATE UNIVERSITIES")
+    #px"^[A-Z]+\\s+[0-9]+,\\s+[0-9]+\\s*CHANCELLOR'S OFFICE OF \
+CALIFORNIA STATE UNIVERSITIES\\s*$"
+    "NOVEMBER 23, 2016                   CHANCELLOR'S OFFICE OF \
+CALIFORNIA STATE UNIVERSITIES")
    #t)
   
   (check-equal?
    ((page-line-tokenize post-2164-regexp-pairings)
-    "NOVEMBER 23, 2016                   CHANCELLOR'S OFFICE OF CALIFORNIA STATE UNIVERSITIES")
+    "NOVEMBER 23, 2016                   CHANCELLOR'S OFFICE \
+OF CALIFORNIA STATE UNIVERSITIES")
    (token-PAGE-HEADER-MINIMAL-LINE '()))
 
   (check-equal?
    ((page-line-tokenize post-2164-regexp-pairings)
     "                                                                           TSF    IAF                       OSF                                      IFF")
    (token-INSTRUCTOR-HDR '()))
+
+  (check-equal?
+   ((page-line-tokenize 2174-regexp-pairings)
+    " FACULTY           NO. OF    APPT    CLASS    SUPERVSN   DIRECT   INDIRECT    TOTAL  \
+DIRECT   TOTAL      TOTAL     TOTAL  SCU/FTEF SFR")
+   (token-SUMMARY-HDR1 '()))
+
+  (check-equal?
+   ((page-line-tokenize 2174-regexp-pairings)
+    "  TYPE              APPTS    FTEF     WTU        WTU      \
+WTU       WTU        WTU  WTU/FTEF WTU/FTEF     SCU      FTES")
+   (token-SUMMARY-HDR2 '()))
+
+  (check-equal?
+   ((page-line-tokenize 2174-regexp-pairings)
+    "  COURSE ID  SECT HEGIS LVL ENR  LS CS A-CCU DAYS BEG  \
+END   TBA FACL SPACE/TYPE GRP  TTF    SCU    FCH  D-WTU \
+I-WTU  T-WTU"
+    )
+   (token-INSTRUCTOR-COURSE-HDR '()))
+
+  (check-equal?
+   ((page-line-tokenize 2174-regexp-pairings)
+    "  COURSE ID  SECT HEGIS LVL ENR  LS CS A-CCU DAYS BEG  \
+END  TBA  FACL SPACE/TYPE GRP  TTF    SCU    FCH  D-WTU \
+I-WTU  T-WTU"
+    )
+   (token-INSTRUCTOR-COURSE-HDR '()))
+
+  
+
+  
+  
   )
 
 

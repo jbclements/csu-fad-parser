@@ -386,7 +386,7 @@
         (dept-pages-detail dept) (dept-pages-name dept)))
      (filter InstructorLines-home?
              (map pre-2144-parse-instructor instructor-sets))]
-    [(or 'post-2142 'post-2164)
+    [(or 'post-2142 'post-2164 '2174-fmt)
      (define instructor-sets
        (post-2142-dept-lines-parser
         (dept-pages-detail dept) (dept-pages-name dept)))
