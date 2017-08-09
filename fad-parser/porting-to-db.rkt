@@ -3,16 +3,11 @@
 (require "pages-to-parsed-tr.rkt"
          "one-quarter-data.rkt")
 
-(define qtr-nums '(2172))
-(define parsed-qtrs (map qtr->parsed qtr-nums))
-
 (define (as-int s)
   (real-as-int (string->number/0 s)))
 
 (define (real-as-int r)
   (inexact->exact (round (* 1000 r))))
-
-
 
 (define (normalize-rank rank)
   (match rank
@@ -29,29 +24,25 @@
     ["ASST PROF/LECT B"  "ASSISTANT PRF/LECT B"]
     ))
 
-(define all-instructor-statuses
+(define (all-instructor-statuses parsed-qtr qtr)
   (apply
    append
-   (for/list ([q parsed-qtrs]
-              [qtr qtr-nums])
-     (apply
-      append
-      (for/list  ([dept (Parsed-depts q)])
-        (for/list ([instr (Dept-instructors dept)]
-                   #:when (Instructor-home? instr))
-          (define hdr (Instructor-header instr))
-          (list
-           (col-ref 'name hdr)
-           qtr
-           (Dept-name dept)
-           (as-int (col-ref 'tsf hdr))
-           (as-int (col-ref 'iaf hdr))
-           (as-int (col-ref 'osf hdr))
-           (col-ref 'adm-lvl hdr)
-           (normalize-rank (col-ref 'rank hdr)))))))))
+   (for/list  ([dept (Parsed-depts parsed-qtr)])
+     (for/list ([instr (Dept-instructors dept)]
+                #:when (Instructor-home? instr))
+       (define hdr (Instructor-header instr))
+       (list
+        (col-ref 'name hdr)
+        qtr
+        (Dept-name dept)
+        (as-int (col-ref 'tsf hdr))
+        (as-int (col-ref 'iaf hdr))
+        (as-int (col-ref 'osf hdr))
+        (col-ref 'adm-lvl hdr)
+        (normalize-rank (col-ref 'rank hdr)))))))
 
-(define (export-instructor-statuses)
-  (export-data  "/tmp/instructorstatuses.txt" all-instructor-statuses))
+(define (export-instructor-statuses parsed-qtr qtr)
+  (export-data  (~a "/tmp/instructorstatuses-"qtr".txt") (all-instructor-statuses parsed-qtr qtr)))
 
 
 (define (export-data filename records)
@@ -75,17 +66,14 @@
         (display (apply ~a (append (add-between data "\t") (list "\n"))))))
     #:exists 'truncate))
 
-#;(define (export-course-names)
-  (export-data "/tmp/courses.txt" all-course-names))
 
-;; no point in making this a table.
-#;(define all-subjects
-  (remove-duplicates (map list (map first all-course-names))))
+(define qtr-nums '(2172))
+(for ([qtr (in-list qtr-nums)])
+  (export-instructor-statuses (qtr->parsed qtr) qtr))
 
-#;(define (export-subjects)
-  (export-data "/tmp/subjects.txt" all-subjects))
+(define parsed-qtrs (map qtr->parsed qtr-nums))
 
-#;((define all-specials
+#;(define all-specials
   (apply
    append
   (for/list ([q parsed-qtrs]
@@ -110,8 +98,8 @@
              (* 1000 (string->number/0 (col-ref/g 'indirect-wtu course))))
             (col-ref/g 'special course))))))
 
-(define (export-specials)
-  (export-data "/tmp/specialcredits.txt" all-specials)))
+#;(define (export-specials)
+  (export-data "/tmp/specialcredits.txt" all-specials))
 
 ;; no datapoints; can't confirm that specials can occur for a person in 
 ;; more than one department report.
