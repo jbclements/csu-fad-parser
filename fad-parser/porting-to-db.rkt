@@ -1,7 +1,8 @@
 #lang racket
 
 (require "pages-to-parsed-tr.rkt"
-         "one-quarter-data.rkt")
+         "one-quarter-data.rkt"
+         csse-scheduling/qtr-math)
 
 (define (as-int s)
   (real-as-int (string->number/0 s)))
@@ -41,9 +42,6 @@
         (col-ref 'adm-lvl hdr)
         (normalize-rank (col-ref 'rank hdr)))))))
 
-(define (export-instructor-statuses parsed-qtr qtr)
-  (export-data  (~a "/tmp/instructorstatuses-"qtr".txt") (all-instructor-statuses parsed-qtr qtr)))
-
 
 (define (export-data filename records)
   (with-output-to-file filename
@@ -67,11 +65,6 @@
     #:exists 'truncate))
 
 
-(define qtr-nums '(2172))
-(for ([qtr (in-list qtr-nums)])
-  (export-instructor-statuses (qtr->parsed qtr) qtr))
-
-(define parsed-qtrs (map qtr->parsed qtr-nums))
 
 #;(define all-specials
   (apply
@@ -133,43 +126,56 @@
   (filter (lambda (elt) (not (string=? elt ""))) l))
 
 
-(define all-offerings
-  (apply
-   append
-   (for/list ([q parsed-qtrs]
-              [qtr qtr-nums])
-     (for/list ([o (in-list (Parsed-offerings q))])
-       (list qtr
-             (Offering-subject o)
-             (Offering-coursenum o)
-             (Offering-section o)
-             (Offering-discipline o)
-             (Offering-level o)
-             (Offering-enrollment o)
-             (Offering-classification o)
-             (real-as-int (Offering-accu o))
-             (Offering-groupcode o))))))
+(define (all-offerings parsed-qtr qtr)
+  (for/list ([o (in-list (Parsed-offerings parsed-qtr))])
+    (list qtr
+          (Offering-subject o)
+          (Offering-coursenum o)
+          (Offering-section o)
+          (Offering-discipline o)
+          (Offering-level o)
+          (Offering-enrollment o)
+          (Offering-classification o)
+          (real-as-int (Offering-accu o))
+          (Offering-groupcode o))))
 
-(define (export-offerings)
-  (export-data "/tmp/offerings.txt" all-offerings))
+(define (all-offerfacs parsed-qtr qtr)
+  (for/list ([o (in-list (Parsed-faculty-offerings parsed-qtr))])
+    (list qtr
+          (FacultyOffering-subject o)
+          (FacultyOffering-coursenum o)
+          (FacultyOffering-section o)
+          (FacultyOffering-instructor o)
+          (real-as-int (FacultyOffering-scu o))
+          (real-as-int (FacultyOffering-contact-hours o))
+          (real-as-int (FacultyOffering-dwtu o)))))
 
-(define all-offerfacs
-  (apply
-   append
-   (for/list ([q parsed-qtrs]
-              [qtr qtr-nums])
-     (for/list ([o (in-list (Parsed-faculty-offerings q))])
-       (list qtr
-             (FacultyOffering-subject o)
-             (FacultyOffering-coursenum o)
-             (FacultyOffering-section o)
-             (FacultyOffering-instructor o)
-             (real-as-int (FacultyOffering-scu o))
-             (real-as-int (FacultyOffering-contact-hours o))
-             (real-as-int (FacultyOffering-dwtu o)))))))
+(define (export-instructor-statuses parsed-qtr qtr)
+  (export-data
+   (~a "/tmp/instructorstatuses-"qtr".txt")
+   (all-instructor-statuses parsed-qtr qtr)))
 
-(define (export-offerfacs)
-  (export-data "/tmp/offerfacs.txt" all-offerfacs))
+(define (export-offerings parsed-qtr qtr)
+  (export-data
+   (~a "/tmp/offerings-"qtr".txt")
+   (all-offerings parsed-qtr qtr)))
+
+(define (export-offerfacs parsed-qtr qtr)
+  (export-data
+   (~a "/tmp/offerfacs-"qtr".txt")
+   (all-offerfacs parsed-qtr qtr)))
+
+
+
+(define qtr-nums '(2172))
+
+(for ([qtr (in-list (qtrs-in-range 2088 2174))])
+  (define parsed-qtr (qtr->parsed qtr))
+  (export-instructor-statuses parsed-qtr qtr)
+  (export-offerings parsed-qtr qtr)
+  (export-offerfacs parsed-qtr qtr))
+
+#;(define parsed-qtrs (map qtr->parsed qtr-nums))
 
 
 #;(define (corrected course)
