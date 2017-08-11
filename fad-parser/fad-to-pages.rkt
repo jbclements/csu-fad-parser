@@ -261,7 +261,12 @@
    (list #px"^[ _]*__[ _]*$" token-INSTRUCTOR-TOTS-DIV)
    (list #px"^[ \\*]*\\*\\*[ \\*]*$" token-INSTRUCTOR-DIV)))
 
-;; there must be a better way of doing this...
+(define 2174-summary-header-template
+  #<<|
+ FACULTY            NO. OF    APPT     CLASS    SUPERVSN    DIRECT   INDIRECT    TOTAL   DIRECT   TOTAL      TOTAL      TOTAL  SCU/FTEF  SFR
+  TYPE               APPTS    FTEF      WTU        WTU       WTU       WTU        WTU   WTU/FTEF WTU/FTEF     SCU       FTES
+|
+  )
 (define 2174-regexp-pairings
   (list
    (list #px"^\\s*\\d+\\s*$" token-STRAY-NUM-LINE)
@@ -271,11 +276,13 @@
    (list page-summary-sub-header-2-regexp token-PAGE-SUMMARY-2-LINE)
    (list department-line-2-regexp token-DEPARTMENT-LINE)
    (list no-department-line-regexp token-NO-DEPARTMENT-LINE)
-   (list (regexp-quote " FACULTY           NO. OF    APPT    CLASS    SUPERVSN   DIRECT   INDIRECT    TOTAL  \
-DIRECT   TOTAL      TOTAL     TOTAL  SCU/FTEF SFR")
+   (list (regexp-quote
+          (first (regexp-split #px"\n"
+                               2174-summary-header-template)))
          token-SUMMARY-HDR1)
-   (list(regexp-quote "  TYPE              APPTS    FTEF     WTU        WTU      \
-WTU       WTU        WTU  WTU/FTEF WTU/FTEF     SCU      FTES")
+   (list (regexp-quote
+          (second (regexp-split #px"\n"
+                                2174-summary-header-template)))
         token-SUMMARY-HDR2)
    (list #px"^\\s+SSN\\s+EMPLOYEE ID\\s+NAME\\s+RANGE CODE\\s+TSF\\s+IAF\\s+ADM-LVL\\s+OSF\\s+IFF"
          token-ASSIGN-HDR1)
@@ -285,9 +292,9 @@ A-CCU DAYS  BEG  END    TBA  FACL SPACE   F  GRP TTF     SCU    FCH  D-WTU I-WTU
    (list #px"^\\s*ASSIGNED TIME ACTIVITY\\s*$" token-ASSIGN-HDR3)
    (list #px"^\\s+TSF\\s+IAF\\s+OSF\\s+IFF\\s*$"
          token-INSTRUCTOR-HDR)
-   (list #px"^  COURSE ID  SECT HEGIS LVL ENR  LS CS \
-A-CCU DAYS BEG  END   ?TBA ? FACL SPACE/TYPE GRP  TTF    \
-SCU    FCH  D-WTU I-WTU  T-WTU"
+   (list #px"^  COURSE ID   SECT HEGIS LVL ENR  LS CS \
+A-CCU DAYS  BEG  END   TBA  FACL SPACE/TYPE GRP   TTF \
+   SCU    FCH  D-WTU  I-WTU  T-WTU"
          token-INSTRUCTOR-COURSE-HDR)
    (list split-appointment-regexp
          token-INSTRUCTOR-SPLIT-APPOINTMENT-LINE)
@@ -525,13 +532,6 @@ SCU    FCH  D-WTU I-WTU  T-WTU"
 
 ;; group into department-detail and summary pages.
 
-;; given a new department and a fad-pages structure, add the
-;; department to the structure.5
-(define (add-dept new-dept the-fad-pages)
-  (match-define (fad-pages college-summary depts) the-fad-pages)
-  (fad-pages college-summary
-             (cons new-dept depts)))
-
 ;; different grouping algorithm, should produce same results.
 ;; group the pages by department and go from there
 (define (pages->dept-list pages)
@@ -730,35 +730,7 @@ OF CALIFORNIA STATE UNIVERSITIES")
     "                                                                           TSF    IAF                       OSF                                      IFF")
    (token-INSTRUCTOR-HDR '()))
 
-  (check-equal?
-   ((page-line-tokenize 2174-regexp-pairings)
-    " FACULTY           NO. OF    APPT    CLASS    SUPERVSN   DIRECT   INDIRECT    TOTAL  \
-DIRECT   TOTAL      TOTAL     TOTAL  SCU/FTEF SFR")
-   (token-SUMMARY-HDR1 '()))
 
-  (check-equal?
-   ((page-line-tokenize 2174-regexp-pairings)
-    "  TYPE              APPTS    FTEF     WTU        WTU      \
-WTU       WTU        WTU  WTU/FTEF WTU/FTEF     SCU      FTES")
-   (token-SUMMARY-HDR2 '()))
-
-  (check-equal?
-   ((page-line-tokenize 2174-regexp-pairings)
-    "  COURSE ID  SECT HEGIS LVL ENR  LS CS A-CCU DAYS BEG  \
-END   TBA FACL SPACE/TYPE GRP  TTF    SCU    FCH  D-WTU \
-I-WTU  T-WTU"
-    )
-   (token-INSTRUCTOR-COURSE-HDR '()))
-
-  (check-equal?
-   ((page-line-tokenize 2174-regexp-pairings)
-    "  COURSE ID  SECT HEGIS LVL ENR  LS CS A-CCU DAYS BEG  \
-END  TBA  FACL SPACE/TYPE GRP  TTF    SCU    FCH  D-WTU \
-I-WTU  T-WTU"
-    )
-   (token-INSTRUCTOR-COURSE-HDR '()))
-
-  
 
   
   

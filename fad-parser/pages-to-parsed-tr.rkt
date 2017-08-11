@@ -46,7 +46,6 @@
          instructor-courses
          dept-short-name
          col-ref
-         #;col-ref/g
          line-kind
          cols-ref
          string->number/0
@@ -263,20 +262,24 @@
   (when (null? lines)
     (raise-argument-error 'section-lines->offering
                           "non-empty list" 0 lines))
-  (Offering (allthesame lines 'dept)
-            (allthesame lines 'course-num)
-            (cast (string->number (allthesame lines 'section)) Natural)
-            (cast (string->number (cast (atmostone lines 'discipline) String)) Natural)
-            (normalize-level (cast (atmostone lines 'level) String))
-            (cast (string->number (cast (atmostone lines 'enrollment) String)) Natural)
-            (collapse-classification lines)
-            (match fformat
-              ['pre-2144 (sum-by-instructor/allthesame lines 'a-ccu)]
-              ['post-2142 (sum-of-nums lines 'a-ccu)]
-              ['post-2164 (sum-of-nums lines 'a-ccu)])
-            (match (atmostone lines 'group-code)
-              [#f #f]
-              [(? string? s) (cast (string->number s) Natural)])))
+  (with-handlers ([exn:fail?
+                   (λ ([exn : exn])
+                     (fprintf (current-error-port)
+                              "error in section-lines: ~v" lines)
+                     (raise exn))])
+    (Offering (allthesame lines 'subject)
+              (allthesame lines 'course-num)
+              (cast (string->number (allthesame lines 'section)) Natural)
+              (cast (string->number (cast (atmostone lines 'discipline) String)) Natural)
+              (normalize-level (cast (atmostone lines 'level) String))
+              (cast (string->number (cast (atmostone lines 'enrollment) String)) Natural)
+              (collapse-classification lines)
+              (match fformat
+                ['pre-2144 (sum-by-instructor/allthesame lines 'a-ccu)]
+                [_ (sum-of-nums lines 'a-ccu)])
+              (match (atmostone lines 'group-code)
+                [#f #f]
+                [(? string? s) (cast (string->number s) Natural)]))))
 
 (: section-lines->faculty-offerings ((Listof AssocLine) -> (Listof FacultyOffering)))
 (define (section-lines->faculty-offerings lines)
@@ -291,9 +294,9 @@
 
 (: instructor-section-lines->faculty-offering ((Listof AssocLine) -> FacultyOffering))
 (define (instructor-section-lines->faculty-offering lines)
-  (define dept (allthesame lines 'dept))
+  (define subject (allthesame lines 'subject))
   (define course-num (allthesame lines 'course-num))
-  (FacultyOffering dept
+  (FacultyOffering subject
                    course-num
                    (cast (string->number (allthesame lines 'section)) Natural)
                    (allthesame lines 'instructor)
@@ -395,7 +398,7 @@
 ;; these fields can occur only once, in the top line.
 (define once-only-topline-fields
   (list->set
-   '(dept
+   '(subject
      course-num 
      section 
      discipline 
@@ -537,7 +540,7 @@
 ;; return the subject/num/section for a courseline
 (: course-line-id (AssocLine -> (List String String String)))
 (define (course-line-id line)
-  (list (col-ref 'dept line)
+  (list (col-ref 'subject line)
         (col-ref 'course-num line)
         (col-ref 'section line)))
 
@@ -554,12 +557,12 @@
 ;; replace the (blank) id elements
 (: add-id ((List String String String) AssocLine -> AssocLine))
 (define (add-id id line)
-  (match-define (list dept course-num section) id)
-  (append `((dept ,dept)
+  (match-define (list subject course-num section) id)
+  (append `((subject ,subject)
             (course-num ,course-num)
             (section ,section))
           (filter (λ ([l : (List Symbol Any)])
-                    (not (member (first l) '(dept course-num section))))
+                    (not (member (first l) '(subject course-num section))))
                   line)))
 
 
@@ -666,14 +669,6 @@
                (~a "expected record with field '"title", got: "(~e record)))]
     [(list _ val) val]))
 
-;; for use with GCourses
-#;(: col-ref/g (Symbol GCourse -> (U String (Listof String))))
-#;(define (col-ref/g title record)
-  (match (assoc title (cdr record))
-    [#f (error 'col-ref
-               (~a "expected record with field '"title", got: "(~e record)))]
-    [(list _ val) val]))
-
 (: cols-ref ((Listof Symbol) KindAssocLine -> (Listof String)))
 (define (cols-ref titles record)
   (map (λ ([title : Symbol]) (col-ref title (cdr record))) titles))
@@ -686,37 +681,5 @@
 (module+ test
   (require typed/rackunit)
 
-  ;; REGRESSION
-  #;(check-equal?
-   (squinch-classes
-    (list
-     ((parse-course-line 'pre-2144)
-      "     AERO   0451      01  09021  2  50  *10  4  4.0  MW    1410 \
-1600        192  0322    1      1.000   200.0  3.8   4.00              \
-    "))
-    'pre-2144)
-   '((kind class)
-     (discipline "09021")
-     (group-code "")
-     (course-num "0451")
-     (section "01")
-     (level "2")
-     (enrollment "50")
-     (dept "AERO")
-     (team-teaching-frac "1.000")
-     (scu "200.0")
-     (indirect-wtu "")
-     (total-wtu "")
-     (direct-wtu "4.00")
-     (faculty-contact-hours "3.8")
-     (sequence ("*10"))
-     (time-stop ("1600"))
-     (space ("0322"))
-     (days ("MW"))
-     (facility ("192"))
-     (facility-type ("1"))
-     (time-start ("1410"))
-     (a-ccu ("4.0"))
-     (tba-hours (""))
-     (classification ("4")))))
+ )
 
