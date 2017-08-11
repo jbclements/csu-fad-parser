@@ -25,24 +25,7 @@
     ["ASST PROF/LECT B"  "ASSISTANT PRF/LECT B"]
     ))
 
-(define (all-instructor-statuses parsed-qtr qtr)
-  (apply
-   append
-   (for/list  ([dept (Parsed-depts parsed-qtr)])
-     (for/list ([instr (Dept-instructors dept)]
-                #:when (Instructor-home? instr))
-       (define hdr (Instructor-header instr))
-       (list
-        (col-ref 'name hdr)
-        qtr
-        (Dept-name dept)
-        (as-int (col-ref 'tsf hdr))
-        (as-int (col-ref 'iaf hdr))
-        (as-int (col-ref 'osf hdr))
-        (col-ref 'adm-lvl hdr)
-        (normalize-rank (col-ref 'rank hdr)))))))
-
-
+;; export a set of records to a file.
 (define (export-data filename records)
   (with-output-to-file filename
     (lambda ()
@@ -63,6 +46,38 @@
               [(? exact-integer? i) i])))
         (display (apply ~a (append (add-between data "\t") (list "\n"))))))
     #:exists 'truncate))
+
+
+(define (all-instructors q qtr)
+  (remove-duplicates
+   (apply
+    append
+    (for/list  ([dept (Parsed-depts q)])
+      (for/list ([instr (Dept-instructors dept)])
+        (define hdr (Instructor-header instr))
+        (define soc (match (col-ref 'id hdr)
+                      [(regexp #px"0 (.*)" (list dc soc)) soc]
+                      [(regexp #px"XXXXX[0-9]{4}" (list soc)) soc]))
+        (list (col-ref 'name hdr)
+              (col-ref 'name hdr)
+              soc))))))
+
+(define (all-instructor-statuses parsed-qtr qtr)
+  (apply
+   append
+   (for/list  ([dept (Parsed-depts parsed-qtr)])
+     (for/list ([instr (Dept-instructors dept)]
+                #:when (Instructor-home? instr))
+       (define hdr (Instructor-header instr))
+       (list
+        (col-ref 'name hdr)
+        qtr
+        (Dept-name dept)
+        (as-int (col-ref 'tsf hdr))
+        (as-int (col-ref 'iaf hdr))
+        (as-int (col-ref 'osf hdr))
+        (col-ref 'adm-lvl hdr)
+        (normalize-rank (col-ref 'rank hdr)))))))
 
 
 
@@ -165,17 +180,38 @@
    (~a "/tmp/offerfacs-"qtr".txt")
    (all-offerfacs parsed-qtr qtr)))
 
+(define (export-instructors parsed-qtr qtr)
+  (export-data
+   (~a "/tmp/instructors-"qtr".txt")
+   (all-instructors parsed-qtr qtr)))
 
+(define earliest-qtr 2088)
+(define after-last-qtr 2178)
+;; compute the incremental additions for this quarter:
+(define only-adding 2174)
 
-(define qtr-nums '(2172))
-
-(for ([qtr (in-list (qtrs-in-range 2088 2174))])
+(for ([qtr (in-list (qtrs-in-range earliest-qtr after-last-qtr))])
   (define parsed-qtr (qtr->parsed qtr))
   (export-instructor-statuses parsed-qtr qtr)
   (export-offerings parsed-qtr qtr)
-  (export-offerfacs parsed-qtr qtr))
+  (export-offerfacs parsed-qtr qtr)
+  (export-instructors parsed-qtr qtr))
 
-#;(define parsed-qtrs (map qtr->parsed qtr-nums))
+;; compute new instructors:
+(define existing-instructors
+  (apply
+   append
+   (for/list ([qtr (in-list (qtrs-in-range earliest-qtr only-adding))])
+     (file->lines (~a "/tmp/instructors-"qtr".txt")))))
+(define new-instructors
+  (remove* existing-instructors
+           (file->lines (~a "/tmp/instructors-"only-adding".txt"))))
+(call-with-output-file (~a "/tmp/new-instructors-"only-adding".txt")
+    (λ (port)
+      (for ([l (in-list new-instructors)])
+        (fprintf port "~a\n" l))))
+
+
 
 
 #;(define (corrected course)

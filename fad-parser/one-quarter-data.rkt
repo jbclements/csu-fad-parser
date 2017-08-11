@@ -11,10 +11,12 @@
 
 (define FAD-DIRECTORY (build-path "/Users/clements/clements/datasets/FAD"))
 
+
+
 ;; let's find bugs in this file:
 #;(define d
-  (file->parsed (build-path FAD-DIRECTORY "fad-2172.txt")
-              'post-2164))
+  (file->parsed (build-path FAD-DIRECTORY "fad-2174.txt")
+              '2174-fmt))
 
 ;; what's the format of this quarter?
 (define (qtr->fformat [cpqtr : Natural]) : Format

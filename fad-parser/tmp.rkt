@@ -15,6 +15,13 @@
 (define FAD-DIRECTORY "/Users/clements/clements/datasets/FAD/")
 
 
+(remove-duplicates
+(filter
+ (λ (l)
+   (regexp-match #px"COURSE ID" l))
+ (file->lines (build-path FAD-DIRECTORY "2174-fad.txt"))))
+
+
 
 (define (categorize-values value-set)
   (cond [(andmap (λ (s) (equal? s "")) value-set)
