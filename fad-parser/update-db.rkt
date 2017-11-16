@@ -8,7 +8,7 @@
          "make-connection.rkt"
          db)
 
-(define qtr-nums '(2174))
+(define qtr-nums '(2178))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
@@ -85,8 +85,6 @@ new-instructors
 (define (export-instructors)
   (export-data "/tmp/instructors.txt" new-instructors))
 
-(error 'stop "here")
-
 (define (normalize-rank rank)
   (match rank
     ["ASSISTANT PRF/LECT B"  "ASSISTANT PRF/LECT B"]
@@ -126,15 +124,15 @@ new-instructors
 (define (export-instructor-statuses)
   (export-data  "/tmp/instructorstatuses.txt" all-instructor-statuses))
 
-
-
 #;(define (export-course-names)
   (export-data "/tmp/courses.txt" all-course-names))
 
-;; no point in making this a table.
+
+
 #;(define all-subjects
   (remove-duplicates (map list (map first all-course-names))))
 
+;; no point in making this a table.
 #;(define (export-subjects)
   (export-data "/tmp/subjects.txt" all-subjects))
 
@@ -166,8 +164,6 @@ new-instructors
 (define (export-specials)
   (export-data "/tmp/specialcredits.txt" all-specials)))
 
-;; no datapoints; can't confirm that specials can occur for a person in 
-;; more than one department report.
 #;(for ([q parsed-qtrs]
       [qtr qtr-nums])
   (define table
@@ -184,9 +180,8 @@ new-instructors
     (when (< 1 (length v))
       (display (~a "got one: " v)))))
 
-
-;; ensure all elements are the same, return the first
-;; (forall A . (nonempty-listof A) -> A)
+;; no datapoints; can't confirm that specials can occur for a person in 
+;; more than one department report.
 (define (ensure-same l)
   (unless (cons? l)
     (raise-argument-error 'ensure-same "nonempty list" 0 l))
@@ -194,9 +189,11 @@ new-instructors
     (raise-argument-error 'ensure-same "list of identical elements" 0 l))
   (first l))
 
+
+;; ensure all elements are the same, return the first
+;; (forall A . (nonempty-listof A) -> A)
 (define (remove-empties l)
   (filter (lambda (elt) (not (string=? elt ""))) l))
-
 
 (define all-offerings
   (apply
