@@ -7,6 +7,8 @@
 ;; checks on the database, which would be nicer
 ;; anyway.
 
+;; EDIT: or maybe they should be checks on the parsed struct files.
+
 (require "divide-columns.rkt"
          "pages-to-parsed-tr.rkt"
          "fad-to-pages.rkt"
