@@ -5,10 +5,15 @@
 ;; categorized list of pages, each containing a bunch
 ;; of lines.
 
+;; I would love to rewrite this into Typed Racket, but I strongly
+;; suspect that trying to use the parser-tools with TR would be
+;; a big big pain.
+
 (require parser-tools/lex
          parser-tools/yacc
          racket/generator
-         "trim-leading-spaces.rkt")
+         "trim-leading-spaces.rkt"
+         (only-in "divide-columns.rkt" format?))
 
 (provide (struct-out fad-pages)
          (struct-out dept-pages)
@@ -17,10 +22,7 @@
          (struct-out summary-page)
          (contract-out
           [file->fad-pages (-> path-string?
-                               (symbols 'pre-2144
-                                        'post-2142
-                                        'post-2164
-                                        '2174-fmt)
+                               format?
                                fad-pages?)]
           [summary-column-ref
            (-> symbol? summary-row? number?)])
@@ -66,8 +68,6 @@
 
 
 ;; accepts a filename and a symbol indicating which family of fads this comes from
-;; pre-2144
-;; post-2142
 (define (file->lines-thunk filename format)
   (define left-margin-chars (first-interesting-column/file filename))
   (printf "first interesting column: ~v\n"
