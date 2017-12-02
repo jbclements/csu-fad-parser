@@ -4,14 +4,50 @@
 ;; it knows where the files are stored, and which format
 ;; to use for which quarter.
 
-(require "pages-to-parsed-tr.rkt"
+(require "parsed-data-defn.rkt"
+         "pages-to-parsed-tr.rkt"
          (only-in "divide-columns.rkt" Format))
 
-(provide qtr->parsed)
+;; given a quarter number such as 2178, return a Parsed
+;; representing the FAD data
+(: qtr->parsed (Natural -> Parsed))
+
+;; return a list of all quarters for which we have FAD reports
+(: qtrs-available (-> (Listof Natural)))
+
+(provide qtr->parsed
+         qtrs-available)
 
 (define FAD-DIRECTORY (build-path "/Users/clements/clements/datasets/FAD"))
 
+;; return a list of all the quarters for which we have
+;; FAD reports
+(define (qtrs-available) : (Listof Natural)
+  (for/list ([f (in-directory FAD-DIRECTORY)]
+             #:when (and (file-exists? f)
+                         (regexp-match fad-filename-pattern
+                                       (filename-only f))))
+    (match (filename-only f)
+      [(regexp fad-filename-pattern (list _ qtr-str))
+       ;; pattern guarantees this assert should succeed
+       (assert (string->number (assert qtr-str string?))
+               exact-nonnegative-integer?)])))
 
+;; return the final filename portion of a filename, ensuring it's a string
+(define (filename-only [f : Path-String]) : String
+  (define-values (stem final must-be-dir?) (split-path f))
+  (cond [must-be-dir? (raise-argument-error 'filename-only
+                                            "path that can be a filename"
+                                            0 f)]
+        [else (cond
+                [(or (equal? final 'up) (equal? final 'same))
+                 (raise-argument-error 'filename-only
+                                       "path not ending with . or .."
+                                       0 f)]
+                [else (path->string final)])]))
+
+;; the pattern that fad filenames have:
+(define fad-filename-pattern #px"^fad-([0-9]+)\\.txt$")
 
 ;; let's find bugs in this file:
 #;(define d

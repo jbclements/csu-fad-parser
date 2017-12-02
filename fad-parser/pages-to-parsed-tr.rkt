@@ -33,12 +33,9 @@
                         (List 'home-dept String (Listof String) (Listof String) String)
                         (List 'no-class-instructor String (Listof String) String))))])
 
+(require "parsed-data-defn.rkt")
+
 (provide (struct-out InstructorLines)
-         (struct-out Instructor)
-         (struct-out Dept)
-         (struct-out Parsed)
-         (struct-out Offering)
-         (struct-out FacultyOffering)
          file->parsed
          parse-pages
          dept->instructors
@@ -52,95 +49,6 @@
          small?)
 
 
-;;(make-parsed (listof (list string assoc-list)) (listof dept))
-(struct Parsed ([college-summary : (U (Listof (List String (Listof String)))
-                                      'no-college-summary-page)]
-                [depts : (Listof Dept)]
-                [offerings : (Listof Offering)]
-                [faculty-offerings : (Listof FacultyOffering)]
-                [atoms : (Listof (Listof AssocLine)
-                                 #;CourseAtom)])
-  #:transparent)
-
-
-;;(make-dept string (listof (list string assoc-list)) (listof instructor))
-(struct Dept ([name : String]
-              [summary : (Listof (List String (Listof String)))]
-              [instructors : (Listof Instructor)])
-  #:transparent)
-
-
-
-;; represents information about an instructor, independent
-;; of the courses he or she is teaching.
-(define-struct Instructor ((header : AssocLine) 
-                           (summary : AssocLine)
-                           (specials : (Listof Special))
-                           [home? : Boolean])
-  #:transparent)
-
-;; an offering is a group of students signed up for a class.
-(define-struct Offering
-  ([subject : String]
-   [coursenum : String]
-   [section : Natural]
-   [discipline : Natural]
-   [level : Level]
-   [enrollment : Natural]
-   [classification : (U #f Natural)]
-   [accu : Real]
-   [groupcode : (U #f Natural)])
-  #:transparent)
-
-(define-type Level (U "LD" "UD" "GD"))
-
-;; an offerfac describes an instructor's involvement with a section
-(define-struct FacultyOffering
-  ([subject : String]
-   [coursenum : String]
-   [section : Natural]
-   [instructor : String]
-   [scu : Real]
-   [contact-hours : Real]
-   [dwtu : Real])
-  #:transparent)
-
-;; a course-atom is a tuple of prefix X number X section X sequence X instructor,
-;; and all of the info that depends on that
-(define-struct CourseAtom
-  ([prefix : String]
-   [course-num : String]
-   [section : Natural]
-   [sequence : Natural]
-   [instructor : String]
-   [discipline : Natural]
-   [level : Level]
-   [enrollment : Natural]
-   [group-code : Natural]
-   [team-teach-frac : Nonnegative-Real]
-   [scu : Nonnegative-Real]
-   [wtu : Nonnegative-Real]
-   [contact-hours : Nonnegative-Real]
-   [time-stop : String]
-   [space : String]
-   [days : String]
-   [facility : String]
-   [facility-type : String]
-   [time-start : String]
-   [a-ccu : String]
-   [tba-hours : Nonnegative-Real]
-   [classification : Natural])
-  #:transparent)
-
-;; represents a special assignment (such as course planning or
-;; development)
-(define-struct Special
-  ([description : String]
-   [scu : Nonnegative-Real]
-   [contact-hours : Nonnegative-Real]
-   [direct-wtu : Nonnegative-Real]
-   [indirect-wtu : Nonnegative-Real])
-  #:transparent)
 
 
 
