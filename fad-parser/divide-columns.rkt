@@ -3,9 +3,12 @@
 ;; these functions break up lines into association lists, based
 ;; on known formats (column divisions)
 
+(require (only-in "parsed-data-defn.rkt" AssocLine))
+
 (define-type Format (U 'pre-2144 'post-2142 'post-2164 '2174-fmt))
-(define-type AssocLine
-  (Listof (List Symbol String)))
+
+(define-predicate format? Format)
+
 (define-type BodyLine (U CourseLine SpecialLine))
 (define-type CourseLine
   (Pairof (List 'kind (U 'class 'extra-sequence))
@@ -18,7 +21,8 @@
          parse-course-line
          parse-summary-line
          AssocLine
-         Format)
+         Format
+         format?)
 
 #;(struct instructor ([header : LineAssoc]
                     [summary : ]
