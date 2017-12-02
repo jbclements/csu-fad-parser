@@ -18,6 +18,9 @@
     (status
      (iqtr home_dept tsf iaf osf admlevel rank)
      (0 10))
+    (assigned
+     (description a_scu contact_hours direct_wtu indirect_wtu)
+     (0 0))
     (group
      ()
      #f))
@@ -28,7 +31,8 @@
     (offering consists_of offerfac)
     (offerfac containing sequence)
     (instructor teaches offerfac)
-    (instructor has_status status)))
+    (instructor has_status status)
+    (instructor gets assigned)))
 
 (define (generate-box box-spec)
   (match-define (list name attrs pos) box-spec)
