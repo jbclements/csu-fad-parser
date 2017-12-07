@@ -47,7 +47,8 @@
          line-kind
          cols-ref
          string->number/0
-         small?)
+         small?
+         expected-courseline-fields)
 
 
 
@@ -181,21 +182,22 @@
           sequences))
 
 ;; these are the observed (common) fields as of 2017-12-06
+;; we're also using them to order the fields of the spreadsheet.
 (define expected-courseline-fields
-  (set 'course-num 'subject 'section ;; appear in all levels, used as all or part of primary key
-       'discipline 'level 'enrollment 'classification 'a-ccu 'group-code ;; specific to offering record
-       'instructor ;; added to earlier 3 to form primary key of offerfac
-       'scu 'faculty-contact-hours 'direct-wtu ;; other fields of offerfac
-       'sequence ;; added to earlier 4 to form primary key of offerseq
-       'days 'time-start 'time-stop 'tba-hours 'facility ;; ...
-       'space 'facility-type 'team-teaching-frac ;; other fields of offerseq
-       'indirect-wtu 'total-wtu ;; always blank
-       ))
+  (list 'subject 'course-num 'section ;; appear in all levels, used as all or part of primary key
+        'discipline 'level 'enrollment 'classification 'a-ccu 'group-code ;; specific to offering record
+        'instructor ;; added to earlier 3 to form primary key of offerfac
+        'scu 'faculty-contact-hours 'direct-wtu ;; other fields of offerfac
+        'sequence ;; added to earlier 4 to form primary key of offerseq
+        'days 'time-start 'time-stop 'tba-hours 'facility ;; ...
+        'space 'facility-type 'team-teaching-frac ;; other fields of offerseq
+        'indirect-wtu 'total-wtu ;; always blank
+        ))
 
 ;; do all of the lines have the same set of fields?
 (define (check-all-the-same-fields [courselines : (Listof AssocLine)]) : Void
-  (unless (andmap (λ ([line : AssocLine]) (equal? (line-labels line)
-                                                  expected-courseline-fields))
+  (define fields-set (list->set expected-courseline-fields))
+  (unless (andmap (λ ([line : AssocLine]) (equal? (line-labels line) fields-set))
                   courselines)
     (error 'check-all-the-same-fields
            "not all lines have the expected set of fields")))
