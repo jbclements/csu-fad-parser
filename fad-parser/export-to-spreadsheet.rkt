@@ -30,7 +30,11 @@
       [label : Symbol (in-list spreadsheet-courseline-fields)])
      (cons (ann label Symbol) (ann i Natural)))))
 
-(define offering-table : (Listof (List (Offering -> Any) Symbol))
+;; a mapping table is used to indicate which fields go in which columns
+;; of the spreadsheet.
+(define-type MappingTable (All (T) (Listof (List (T -> Any) Symbol))))
+
+(define offering-table : (MappingTable Offering)
   (list (list Offering-subject 'subject)
         (list Offering-coursenum 'course-num)
         (list Offering-section 'section)
@@ -41,18 +45,49 @@
         (list Offering-accu 'a-ccu)
         (list Offering-groupcode 'group-code)))
 
-;; given an offering, produce a list representing one row of a spreadsheet
-(define (flatten-offering [o : Offering]) : (Listof Any)
+(define offerfac-table : (MappingTable FacultyOffering)
+  (list (list FacultyOffering-subject 'subject)
+        (list FacultyOffering-coursenum 'course-num)
+        (list FacultyOffering-section 'section)
+        (list FacultyOffering-instructor 'instructor)
+        (list FacultyOffering-scu 'scu)
+        (list FacultyOffering-contact-hours 'faculty-contact-hours)
+        (list FacultyOffering-dwtu 'direct-wtu)))
+
+(define offerseq-table : (MappingTable OfferingSequence)
+  (list
+   (list OfferingSequence-subject 'subject)
+   (list OfferingSequence-coursenum 'course-num)
+   (list OfferingSequence-section 'section)
+   (list OfferingSequence-instructor 'instructor)
+   (list OfferingSequence-sequence 'sequence)
+   (list OfferingSequence-days 'days)
+   (list OfferingSequence-time-start 'time-start)
+   (list OfferingSequence-time-stop 'time-stop)
+   (list OfferingSequence-tba-hours 'tba-hours)
+   (list OfferingSequence-facility 'facility)
+   (list OfferingSequence-space 'space)
+   (list OfferingSequence-facility-type 'facility-type)
+   (list OfferingSequence-team-teach-frac 'team-teaching-frac)))
+
+;; given a table and a value, produce a list representing one row of a spreadsheet
+(: flatten-struct (All (T) ((MappingTable T) -> (T -> (Listof Any)))))
+(define ((flatten-struct table) o)
   (define idx-val-mapping
     (cons (cons (hash-ref column-hash 'qtr) qtr) 
     (for/list : (Listof (Pairof Natural Any))
-      ([entry (in-list offering-table)])
+      ([entry (in-list table)])
       (cons (hash-ref column-hash (second entry)) ((first entry) o)))))
   (for/list
     ([i : Natural (in-range (length expected-courseline-fields))])
     (match (assoc i idx-val-mapping)
       [(cons _ val) val]
       [#f ""])))
+
+;; given an offering, produce a list representing one row of a spreadsheet
+(define flatten-offering (flatten-struct offering-table))
+(define flatten-offerfac (flatten-struct offerfac-table))
+(define flatten-sequence (flatten-struct offerseq-table))
 
 ;; convert a list of CSV values into a single string
 (define (csv-row->string [l : (Listof Any)]) : String
@@ -85,7 +120,10 @@
 
 (define csv-rows
   (cons header-row
-        (map flatten-offering (Parsed-offerings 2172-data))))
+        (append
+         (map flatten-offering (Parsed-offerings 2172-data))
+         (map flatten-offerfac (Parsed-faculty-offerings 2172-data))
+         (map flatten-sequence (Parsed-sequences 2172-data)))))
 
 (call-with-output-file "/tmp/zz.csv"
   #:exists 'truncate
