@@ -1,3 +1,4 @@
+
 #lang typed/racket
 
 ;; this file contains the structures used in Typed Racket
