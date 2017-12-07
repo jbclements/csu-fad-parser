@@ -136,9 +136,6 @@
 ;; - (qtr,subject,coursenum,section),sequence,instructor),days,time-start,time-stop,tba-hours,facility, space, facility-type, team-teaching-frac
 
 
-
-
-
 (: file->parsed (Path-String Format -> Parsed))
 (define (file->parsed file fformat)
   (parse-pages (file->fad-pages file fformat) fformat))
@@ -159,6 +156,8 @@
             (dept-pages-summary dept-pages)
             instructors)))
   (define instructorlineses (apply append instructorlineseses))
+  ;; these courselines are fully qualified, and ordering
+  ;; no longer matters after this point.
   (define courselines
     (apply append
            (for/list : (Listof (Listof AssocLine))
@@ -207,7 +206,7 @@
   (list->set (map (inst first Symbol Any) line)))
 
 
-;; given a list of lines representing a section, return an offering
+;; given a list of fully qualified lines representing an section, return an offering
 (: section-lines->offering (Format -> (Listof AssocLine) -> Offering))
 (define ((section-lines->offering fformat) lines)
   (when (null? lines)
@@ -232,6 +231,7 @@
                 [#f #f]
                 [(? string? s) (assert (string->number s) nat?)]))))
 
+;; given the 
 (: section-lines->faculty-offerings ((Listof AssocLine) -> (Listof FacultyOffering)))
 (define (section-lines->faculty-offerings lines)
   (when (null? lines)

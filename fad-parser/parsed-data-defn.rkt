@@ -35,10 +35,10 @@
 
 ;; represents information about an instructor, independent
 ;; of the courses he or she is teaching.
-(struct Instructor ((header : AssocLine) 
-                           (summary : AssocLine)
-                           (specials : (Listof Special))
-                           [home? : Boolean])
+(struct Instructor ((header : AssocLine)
+                    (summary : AssocLine)
+                    (specials : (Listof Special))
+                    [home? : Boolean])
   #:prefab)
 
 ;; an offering is a group of students signed up for a class.
