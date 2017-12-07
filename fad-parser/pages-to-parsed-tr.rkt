@@ -7,7 +7,9 @@
 ;; that this code works now and will be more readable and
 ;; dependable in the future.
 
-(require "divide-columns.rkt")
+(require "divide-columns.rkt"
+         "check-primary-keys.rkt"
+         "parsed-data-defn.rkt")
 
 (require/typed "fad-to-pages.rkt"
                [#:struct dept-pages
@@ -33,7 +35,6 @@
                         (List 'home-dept String (Listof String) (Listof String) String)
                         (List 'no-class-instructor String (Listof String) String))))])
 
-(require "parsed-data-defn.rkt")
 
 (provide (struct-out InstructorLines)
          file->parsed
@@ -80,7 +81,12 @@
 ;; part.
 ;;
 ;; COLUMNS:
-;; 
+;;
+;; - sequence: should be unique per subject/coursenum/instructor/line. In early
+;;   fads, some sequence numbers start with a star. I believe this indicates that
+;;   this sequence has values in the SCU, FCH, and some other fields. I don't
+;;   believe that any additional information is conveyed by this star.
+;;
 ;; - classification: in pre-2144, always just one classification, appearing
 ;; in the first line of an instructor's section record. in Post 2142, blanks
 ;; are replaced by 00s, and some instructor-section records have all lines at
@@ -115,6 +121,11 @@
 ;; - direct-wtu : same thing! should be summed per instructor-section
 ;; - indirect-wtu : totally blank.
 ;; - total-wtu : totally blank.
+
+;; - team-teaching-frac : did I miss this, before? number or blank. Looks like they
+;;   should sum to one for the ... section? instructor-section? probably instructor-section.
+;; FIXME CHECK TTF SUMS TO ONE
+;; FIMXE CHECK UNIQUENESS OF SEQUENCE NUMBER ... more generally, lots of primary-key uniqueness checks
 
 ;; in offering record:
 ;; - qtr, subject, coursenum, section, discipline, level, enrollment, a-ccu, group code, classification
@@ -153,16 +164,46 @@
              ([instructorlines (in-list instructorlineses)])
              (attach-course-identity-info
               (instructor-courses instructorlines)))))
+  (check-all-the-same-fields courselines)
   (define section-line-groups (regroup-lines courselines))
   (define offerings (map (section-lines->offering fformat) section-line-groups))
+  (check-offering-uniqueness offerings)
   (define offerfacs
     (apply append
            (map section-lines->faculty-offerings section-line-groups)))
+  (check-offerfac-uniqueness offerfacs)
+  (define sequences (map line->sequence courselines))
+  (check-offerseq-uniqueness sequences)
   (Parsed (fad-pages-college-summary fad-pages)
           depts
           offerings
           offerfacs
-          section-line-groups))
+          sequences))
+
+;; these are the observed (common) fields as of 2017-12-06
+(define expected-courseline-fields
+  (set 'course-num 'subject 'section ;; appear in all levels, used as all or part of primary key
+       'discipline 'level 'enrollment 'classification 'a-ccu 'group-code ;; specific to offering record
+       'instructor ;; added to earlier 3 to form primary key of offerfac
+       'scu 'faculty-contact-hours 'direct-wtu ;; other fields of offerfac
+       'sequence ;; added to earlier 4 to form primary key of offerseq
+       'days 'time-start 'time-stop 'tba-hours 'facility ;; ...
+       'space 'facility-type 'team-teaching-frac ;; other fields of offerseq
+       'indirect-wtu 'total-wtu ;; always blank
+       ))
+
+;; do all of the lines have the same set of fields?
+(define (check-all-the-same-fields [courselines : (Listof AssocLine)]) : Void
+  (unless (andmap (λ ([line : AssocLine]) (equal? (line-labels line)
+                                                  expected-courseline-fields))
+                  courselines)
+    (error 'check-all-the-same-fields
+           "not all lines have the expected set of fields")))
+
+;; return the set of labels in an AssocLine
+(define (line-labels [line : AssocLine]) : (Setof Symbol)
+  (list->set (map (inst first Symbol Any) line)))
+
 
 ;; given a list of lines representing a section, return an offering
 (: section-lines->offering (Format -> (Listof AssocLine) -> Offering))
@@ -177,17 +218,17 @@
                      (raise exn))])
     (Offering (allthesame lines 'subject)
               (allthesame lines 'course-num)
-              (cast (string->number (allthesame lines 'section)) Natural)
-              (cast (string->number (cast (atmostone lines 'discipline) String)) Natural)
-              (normalize-level (cast (atmostone lines 'level) String))
-              (cast (string->number (cast (atmostone lines 'enrollment) String)) Natural)
+              (assert (string->number (allthesame lines 'section)) nat?)
+              (assert (string->number (assert (atmostone lines 'discipline) string?)) nat?)
+              (normalize-level (assert (atmostone lines 'level) string?))
+              (assert (string->number (assert (atmostone lines 'enrollment) string?)) nat?)
               (collapse-classification lines)
               (match fformat
                 ['pre-2144 (sum-by-instructor/allthesame lines 'a-ccu)]
                 [_ (sum-of-nums lines 'a-ccu)])
               (match (atmostone lines 'group-code)
                 [#f #f]
-                [(? string? s) (cast (string->number s) Natural)]))))
+                [(? string? s) (assert (string->number s) nat?)]))))
 
 (: section-lines->faculty-offerings ((Listof AssocLine) -> (Listof FacultyOffering)))
 (define (section-lines->faculty-offerings lines)
@@ -206,11 +247,60 @@
   (define course-num (allthesame lines 'course-num))
   (FacultyOffering subject
                    course-num
-                   (cast (string->number (allthesame lines 'section)) Natural)
+                   (assert (string->number (allthesame lines 'section)) nat?)
                    (allthesame lines 'instructor)
                    (sum-of-nums lines 'scu)                   
                    (sum-of-nums lines 'faculty-contact-hours)
                    (sum-of-nums lines 'direct-wtu)))
+
+(: line->sequence (AssocLine -> OfferingSequence))
+(define (line->sequence line)
+  (unless (equal? (col-ref 'indirect-wtu line) "")
+    (raise-argument-error 'line->sequence
+                          "empty string for 'indirect-wtu"
+                          line))
+  (unless (equal? (col-ref 'total-wtu line) "")
+    (raise-argument-error 'line->sequence
+                          "empty string for 'total-wtu"
+                          line))
+  (define section
+    (match (string->number (col-ref 'section line))
+      [(? nat? n) n]
+      [other (raise-argument-error 'line->sequence
+                                   "section field containing number"
+                                   line)]))
+  ;; ignore leading *. See discussion above.
+  (define sequence
+    (match (col-ref 'sequence line)
+      [(regexp #px"\\*([0-9]+)" (list _ numstr))
+       (assert (string->number (substring (assert numstr string?) 1)) nat?)]
+      [(regexp #px"[0-9]+" (list numstr))
+       (assert (string->number numstr) nat?)]
+      [other  (raise-argument-error 'line->sequence
+                                    "sequence field containing number"
+                                    line)]))
+  (define ttf
+    (match (col-ref 'team-teaching-frac line)
+      ["" 0.0]
+      [other (match (string->number other)
+               [(? nonnegative-real? n) n]
+               [other (raise-argument-error
+                       'line->sequence
+                       "team-teaching-frac field containing nonnegative real"
+                       line)])]))
+  (OfferingSequence (col-ref 'subject line)
+                    (col-ref 'course-num line)
+                    section
+                    (col-ref 'instructor line)
+                    sequence
+                    (col-ref 'days line)
+                    (col-ref 'time-start line)
+                    (col-ref 'time-stop line)
+                    (string->number/0 (col-ref 'tba-hours line))
+                    (col-ref 'facility line)
+                    (col-ref 'space line)
+                    (col-ref 'facility-type line)
+                    ttf))
 
 (: normalize-level : (String -> Level))
 (define (normalize-level level)
@@ -257,7 +347,7 @@
                                       vals))
   (match (remove-duplicates nonblanknonzerovals)
     [(list) #f]
-    [(list v) (cast (string->number v) Natural)]
+    [(list v) (assert (string->number v) nat?)]
     [other (raise-argument-error 'collapse-classifications
                                  "at most one nonzero nonblank value for classification"
                                  0 lines)]))
@@ -267,7 +357,7 @@
 (define (sum-of-nums lines column)
   (define vals (map (λ ([line : AssocLine]) (col-ref column line)) lines))
   (define nonblankvals (filter (λ ([s : String]) (not (equal? s ""))) vals))
-  (apply + (map (λ ([s : String]) (cast (string->number s) Real)) nonblankvals)))
+  (apply + (map (λ ([s : String]) (assert (string->number s) real?)) nonblankvals)))
 
 ;; given a list of lines representing a section, compute the sum of the
 ;; given field for each instructor, ensure that they're all the same,
@@ -278,11 +368,12 @@
     (group-by (λ ([l : AssocLine]) (col-ref 'instructor l)) lines))
   (define instructor-sums
     (for/list : (Listof Real) ([g (in-list instructor-groups)])
-      (sum-of-nums g 'a-ccu)))
+      (sum-of-nums g field)))
   (define unique-sums (remove-duplicates instructor-sums))
   (unless (= 1 (length unique-sums))
     (error 'sum-by-instructor/allthesame
-           "expected each instructor to have the same a-ccu sum, got: ~e"
+           "expected each instructor to have the same sum for field ~e, got: ~e"
+           field
            instructor-sums))
   (first unique-sums))
 
@@ -492,7 +583,7 @@
         (for/sum : Real ([l course-lines])
           ;; in pre-2144, this shouldn't be a list...
           (string->number/0
-           (cast (col-ref col (rest l)) String))))
+           (assert (col-ref col (rest l)) string?))))
       ;; sadly, there are two kinds of rounding error here:
       (cond [(and (small? given-total 1e-4)
                   (small? computed-total 1e-4)) 'both]
@@ -528,8 +619,9 @@
 (: string->number/0 (String -> Nonnegative-Real))
 (define (string->number/0 str)
   (cond [(string=? str "") 0.0]
-        [else (cast (string->number str)
-                    Nonnegative-Real)]))
+        [else (assert (string->number str)
+                      nonnegative-real?)]))
+
 
 
 
@@ -585,6 +677,14 @@
 (: special? (KindAssocLine -> Boolean))
 (define (special? course)
   (eq? (line-kind course) 'special))
+
+
+;; short name for convenience
+(define nat? exact-nonnegative-integer?)
+
+
+(define-predicate nonnegative-real? Nonnegative-Real)
+
 
 (module+ test
   (require typed/rackunit)
