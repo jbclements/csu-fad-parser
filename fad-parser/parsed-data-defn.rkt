@@ -1,4 +1,3 @@
-
 #lang typed/racket
 
 ;; this file contains the structures used in Typed Racket
@@ -12,6 +11,7 @@
          (struct-out OfferingSequence)
          (struct-out Special)
          Level
+         Rank
          AssocLine)
 
 
@@ -97,3 +97,13 @@
 
 (define-type AssocLine
   (Listof (List Symbol String)))
+
+(define-type Rank
+  (U "ASSISTANT PRF/LECT B"
+     "PROFESSOR/LECT D"
+     "TEACHING ASSOCIATE"
+     "ASSOCIATE PRF/LECT C"
+     "ADMINISTRATOR"
+     "INSTRUCTOR/LECT A"
+     "TEACHING ASST/LECT L"
+     "OTHER"))

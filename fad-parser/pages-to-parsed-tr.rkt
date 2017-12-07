@@ -396,6 +396,7 @@
         (dept-pages-detail dept) (dept-pages-name dept)))
      (map (post-2142-parse-instructor fformat) instructor-sets)]))
 
+;; ooh... not currently used.
 ;; these fields can occur only once, in the top line.
 (define once-only-topline-fields
   (list->set
@@ -409,7 +410,7 @@
      group-code
      #;classification)))
 
-
+;; ooh... not currently used
 ;; these fields can occur only once, in the starred line
 (define once-only-someline-fields
   (list->set 
@@ -470,10 +471,49 @@
       (map (parse-course-line fformat) specials)
       #t)]))
 
+
+;; WIP INSTRUCTOR PARSING
+;; FIXME location
+(define header-fields
+  (list->set '(id other-id name rank tsf iaf adm-lvl osf split split-frac iff)))
+
+#;((define header-guesses
+  '(id other-id name rank tsf iaf adm-lvl osf split split-frac iff))
+(define header-checking-table
+  '((id string)
+    (other-id string)
+    (name string)
+    (rank smallset)
+    (tsf frac)
+    (iaf frac)
+    (adm-lvl smallset)
+    (osf frac)
+    (split help)
+    (split-frac frac)
+    (iff frac)))
+
+(define (check-pat [str : String] [pat : Symbol])
+  (match pat
+    ['string 'ok]
+    ['smallset ])))
+
+(define summary-fields
+  (list->set '(total-individual
+  enrolled
+  scu
+  faculty-contact-hours
+  direct-wtu
+  indirect-wtu
+  total-wtu)))
+
 ;; strip the information about courses out to transform an InstructorLines
 ;; into an instructor
 (: lines->instructor (InstructorLines -> Instructor))
 (define (lines->instructor ilines)
+  (unless (equal? header-fields (line-labels (InstructorLines-header ilines)))
+    (error 'zzzzz))
+  (unless (equal? summary-fields (line-labels (InstructorLines-summary ilines)))
+    (error 'yyyy))
   (Instructor (InstructorLines-header ilines)
               (InstructorLines-summary ilines)
               (map line->special (filter

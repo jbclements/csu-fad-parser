@@ -5,9 +5,9 @@
          (only-in "pages-to-parsed-tr.rkt"
                   expected-courseline-fields))
 
-(define qtr 2172)
-(define 2172-data
-  (qtr->parsed 2172))
+(define qtrs
+  (qtrs-available)
+  #;'(2172))
 
 
 (define spreadsheet-courseline-fields : (Listof Symbol)
@@ -70,11 +70,12 @@
    (list OfferingSequence-facility-type 'facility-type)
    (list OfferingSequence-team-teach-frac 'team-teaching-frac)))
 
+
 ;; given a table and a value, produce a list representing one row of a spreadsheet
-(: flatten-struct (All (T) ((MappingTable T) -> (T -> (Listof Any)))))
-(define ((flatten-struct table) o)
+(: flatten-struct (All (T) ((MappingTable T) -> (Natural -> (T -> (Listof Any))))))
+(define (((flatten-struct table) qtr) o)
   (define idx-val-mapping
-    (cons (cons (hash-ref column-hash 'qtr) qtr) 
+    (cons (cons (hash-ref column-hash 'qtr) qtr)
     (for/list : (Listof (Pairof Natural Any))
       ([entry (in-list table)])
       (cons (hash-ref column-hash (second entry)) ((first entry) o)))))
@@ -118,17 +119,21 @@
 (define header-row
   (map symbol->string spreadsheet-courseline-fields))
 
-(define csv-rows
-  (cons header-row
-        (append
-         (map flatten-offering (Parsed-offerings 2172-data))
-         (map flatten-offerfac (Parsed-faculty-offerings 2172-data))
-         (map flatten-sequence (Parsed-sequences 2172-data)))))
+;; given a quarter, parse and return the spreadsheet rows
+(define (qtr->csv-rows [qtr : Natural])
+  (define data (qtr->parsed qtr))
+
+  (append
+   (map (flatten-offering qtr) (Parsed-offerings data))
+   (map (flatten-offerfac qtr) (Parsed-faculty-offerings data))
+   (map (flatten-sequence qtr) (Parsed-sequences data))))
+
+(define rows (apply append (map qtr->csv-rows qtrs)))
 
 (call-with-output-file "/tmp/zz.csv"
   #:exists 'truncate
   (λ ([port : Output-Port])
-    (for ([line (in-list csv-rows)])
+    (for ([line (in-list (cons header-row rows))])
       (displayln (csv-row->string line) port))))
 
 
