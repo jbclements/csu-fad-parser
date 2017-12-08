@@ -135,6 +135,11 @@
 ;; in offerseq record:
 ;; - (qtr,subject,coursenum,section),sequence,instructor),days,time-start,time-stop,tba-hours,facility, space, facility-type, team-teaching-frac
 
+;; okay, this is nasty. In pre-2144, the classes taught by split
+;; appointment faculty appear in both their home department and
+;; their other appointment, it's just that in their non-home
+;; department, the bottom-line totals are uniformly zero. blecch.
+
 
 (: file->parsed (Path-String Format -> Parsed))
 (define (file->parsed file fformat)
@@ -511,9 +516,13 @@
 (: lines->instructor (InstructorLines -> Instructor))
 (define (lines->instructor ilines)
   (unless (equal? header-fields (line-labels (InstructorLines-header ilines)))
-    (error 'zzzzz))
+    (error 'lines->instructor
+           "unexpected set of header fields in line: ~e"
+           (InstructorLines-header ilines)))
   (unless (equal? summary-fields (line-labels (InstructorLines-summary ilines)))
-    (error 'yyyy))
+    (error 'lines->instructor
+           "unexpected set of summary fields in line: ~e"
+           (InstructorLines-summary ilines)))
   (Instructor (InstructorLines-header ilines)
               (InstructorLines-summary ilines)
               (map line->special (filter
@@ -664,20 +673,26 @@
         [else (assert (string->number str)
                       nonnegative-real?)]))
 
-
-
-
 (: dept-short-name (String -> String))
 (define (dept-short-name n)
   (match n
-    [(regexp #px"DEPARTMENT - (\\d+) (.*)" (list _ num name))
-     (dept-name-matcher (cast name String))]
     [(regexp #px"(\\d+) (.*)" (list _ num name))
-     (dept-name-matcher (cast name String))]
+     ;; check that the number and the name match as expected
+     (define lookup-names (assoc
+                           (assert (string->number (assert num string?))
+                                   number?)
+                           dept-number-mapping))
+     (unless (and (pair? lookup-names)
+                  (member name (rest lookup-names)))
+       (error 'dept-short-name
+              "unexpected number/deptname pairing: ~e"
+              n))
+     (assert name string?)]
     [other
      (raise-argument-error 'dept-short-name "department name matching pattern" 0 n)]))
 
-
+;; turning off this mapping to clean things up.
+#;(
 ;; shorten department names
 (: dept-name-matcher (String -> String))
 (define (dept-name-matcher name)
@@ -691,7 +706,7 @@
     ["ELECTRICAL ENGINEERING" "EE"]
     ["IND ENG" "IME"]
     ["MECHANICAL ENG" "ME"]
-    ["WELDING AND METALLURGICAL ENGINEERING" "MATE"]))
+    ["WELDING AND METALLURGICAL ENGINEERING" "MATE"])))
 
 
 
@@ -730,6 +745,9 @@
 
 (module+ test
   (require typed/rackunit)
+
+  (check-equal? (dept-short-name "112 AERO ENG")
+                "AERO")
 
  )
 
