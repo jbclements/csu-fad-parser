@@ -4,8 +4,8 @@
 
 
 (require "fad-parser.rkt"
-         "pages-to-parsed.rkt"
-         "all-data.rkt"
+         ;;"../pages-to-parsed.rkt"
+         "../all-data.rkt"
          racket/date
          plot)
 

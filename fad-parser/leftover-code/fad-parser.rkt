@@ -2,7 +2,7 @@
 
 ;; it looks like I ... I think this file is totally obsolete.
 
-(require "pages-to-parsed-tr.rkt")
+(require "../pages-to-parsed-tr.rkt")
 
 
 ;; return the first of a list of length 1.

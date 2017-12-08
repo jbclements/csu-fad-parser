@@ -4,9 +4,10 @@
 ;; the database proper no longer tries to correct
 ;; for the sins of labwashing.
 
-(require "pages-to-parsed-tr.rkt")
-
 #;(
+   (require "../pages-to-parsed-tr.rkt")
+
+
 (provide un-labwash
          is-senior-project?
          has-group?)
