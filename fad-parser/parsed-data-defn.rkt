@@ -12,6 +12,7 @@
          (struct-out Special)
          Level
          Rank
+         AdministrativeLevel
          AssocLine)
 
 
@@ -107,3 +108,9 @@
      "INSTRUCTOR/LECT A"
      "TEACHING ASST/LECT L"
      "OTHER"))
+
+(define-type AdministrativeLevel
+  (U "" "DEPT ACAD YR" "SCHOOL OTHER" "CAMPUS DEAN"
+     "DEPT 12 MO." "DEPT ACADEMIC YR" "SCHOOL A/A DEAN"
+     "CAMPUS DEAN/CHAIR" "DEPT 12 MONTH"
+     "CAMPUS OTHER APPT"))

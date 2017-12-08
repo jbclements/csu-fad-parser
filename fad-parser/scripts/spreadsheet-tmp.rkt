@@ -4,7 +4,7 @@
 
 (define data
   (for/list ([f (in-list (directory-list "/tmp/"))]
-             #:when (regexp-match #px"fad-....-parsed.rktd" f))
+             #:when (regexp-match #px"fad-21[6].-parsed.rktd" f))
     (file->value (build-path "/tmp/" f))))
 
 (define instructors
@@ -39,13 +39,32 @@
     ["ASST PROF/LECT B"  "ASSISTANT PRF/LECT B"]
     ))
 
+'((id other-id name rank tsf iaf adm-lvl osf split split-frac iff))
 ;; frac-pattern: #px"[0-9]*\\.[0-9]+", safe to use string->number
+;; iaf : frac-pattern but could also be blank... but there's a clean
+;; switch from 0.0 to blank in 2144. So blank is safe to treat as 0.0.
+;; osf: frac. no blanks.
 
-(remove-duplicates
- (map (λ (header)`
-        (match (second (fifth header))
-          [(regexp #px"[0-9]*\\.[0-9]+" (list _)) 'ok]
+
+
+(define fieldvals
+  (map (λ (header) (second (ninth header))) headers))
+
+(length (remove-duplicates fieldvals))
+(length (filter (λ (x) (equal? x "")) fieldvals))
+(length (filter (λ (x) (and (string->number x)
+                            (= (string->number x) 0)))
+                fieldvals))
+
+(map (λ (g) (list (first g) (length g)))
+(group-by
+ (λ (x) x)
+ (map (λ (header)
+        (match (second (ninth header))
+          [(regexp #px"^[0-9]*\\.[0-9]+$" (list m))
+           (cond [(not (= (string->number m) 0)) 'ok]
+                 [else 0.0])]
           [other other]))
-      headers))
+      headers)))
 
 ;(map (λ (summary) (list-ref summary fieldnum)) summaries)
