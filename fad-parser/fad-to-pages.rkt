@@ -157,13 +157,10 @@
   #px"^\\s+JOB APD(\\d\\d)\\s+PGM APD(\\d\\d)\\s+SUMMARY BY FACULTY TYPE AND RANK FOR ([A-Z]+\\s+\\d+\\s+SAN LUIS OBISPO)\\s+PAGE\\s+(\\d+)\\s*$")
 
 (define department-line-regexp
-  #px"^\\s*0SCHOOL - 52 ENGINEERING(.*)")
-
-(define department-line-2-regexp
-  #px"^\\s*SCHOOL - 52 ENGINEERING\\s+DEPARTMENT - (.*)")
+  #px"^\\s*0?SCHOOL - 52 ENGINEERING\\s+DEPARTMENT - (.*[^ ])")
 
 (define no-department-line-regexp
-  #px"^\\s*SCHOOL - 52 ENGINEERING\\s*$")
+  #px"^\\s*0?SCHOOL - 52 ENGINEERING\\s*$")
 
 (define course-header-regexp
   #px"^\\s+COURSE ID   SECT HEGIS LVL ENR  LS CS A-CCU DAYS  BEG  END   TBA  FACL SPACE/TYPE GRP   TTF    SCU    FCH  D-WTU  I-WTU  T-WTU")
@@ -184,6 +181,7 @@
    (list page-assignments-sub-header-regexp token-PAGE-ASSIGNMENTS-LINE)
    (list page-summary-sub-header-regexp token-PAGE-SUMMARY-LINE)
    (list department-line-regexp token-DEPARTMENT-LINE)
+   (list no-department-line-regexp token-NO-DEPARTMENT-LINE)
    (list (regexp-quote "  0FACULTY        NUMBER     FTEF     CLASS   SUPERVSN   DIRECT   INDIRECT    TOTAL   DIRECT     TOTAL    TOTAL     TOTAL   SCU/FTEF    SFR ")
          token-SUMMARY-HDR1)
    (list(regexp-quote "    TYPE          ASSIGNMNTS           WTU       WTU       WTU       WTU       WTU   WTU/FTEF  WTU/FTEF    SCU      FTES                    ")
@@ -204,7 +202,7 @@
    (list page-header-minimal-regexp token-PAGE-HEADER-MINIMAL-LINE)
    (list page-assignments-sub-header-regexp token-PAGE-ASSIGNMENTS-LINE)
    (list page-summary-sub-header-2-regexp token-PAGE-SUMMARY-2-LINE)
-   (list department-line-2-regexp token-DEPARTMENT-LINE)
+   (list department-line-regexp token-DEPARTMENT-LINE)
    (list no-department-line-regexp token-NO-DEPARTMENT-LINE)
    (list (regexp-quote " FACULTY            NO. OF    APPT     CLASS    SUPERVSN    DIRECT   INDIRECT    TOTAL   DIRECT   TOTAL      TOTAL      TOTAL  SCU/FTEF  SFR")
          token-SUMMARY-HDR1)
@@ -237,7 +235,7 @@
    (list page-header-minimal-regexp-post-2164 token-PAGE-HEADER-MINIMAL-LINE)
    (list page-assignments-sub-header-regexp token-PAGE-ASSIGNMENTS-LINE)
    (list page-summary-sub-header-2-regexp token-PAGE-SUMMARY-2-LINE)
-   (list department-line-2-regexp token-DEPARTMENT-LINE)
+   (list department-line-regexp token-DEPARTMENT-LINE)
    (list no-department-line-regexp token-NO-DEPARTMENT-LINE)
    (list (regexp-quote " FACULTY            NO. OF    APPT     CLASS    SUPERVSN    DIRECT   INDIRECT    TOTAL   DIRECT   TOTAL      TOTAL      TOTAL  SCU/FTEF  SFR")
          token-SUMMARY-HDR1)
@@ -274,7 +272,7 @@
    (list page-header-minimal-regexp-post-2164 token-PAGE-HEADER-MINIMAL-LINE)
    (list page-assignments-sub-header-regexp token-PAGE-ASSIGNMENTS-LINE)
    (list page-summary-sub-header-2-regexp token-PAGE-SUMMARY-2-LINE)
-   (list department-line-2-regexp token-DEPARTMENT-LINE)
+   (list department-line-regexp token-DEPARTMENT-LINE)
    (list no-department-line-regexp token-NO-DEPARTMENT-LINE)
    (list (regexp-quote
           (first (regexp-split #px"\n"
@@ -353,7 +351,13 @@ A-CCU DAYS  BEG  END   TBA  FACL SPACE/TYPE GRP   TTF \
                             SUMMARY-HDR1
                             SUMMARY-HDR2
                             non-header-lines) 
-                           (list $1 $2 $5)])
+                           (list $1 (map string-trim $2) $5)]
+                          [(PAGE-SUMMARY-LINE 
+                            NO-DEPARTMENT-LINE
+                            SUMMARY-HDR1
+                            SUMMARY-HDR2
+                            non-header-lines) 
+                           (list $1 '(#f) $5)])
             (non-header-lines 
              [(OTHER-LINE non-header-lines) 
               (cons (position-token (token-OTHER-LINE $1)
@@ -657,7 +661,14 @@ A-CCU DAYS  BEG  END   TBA  FACL SPACE/TYPE GRP   TTF \
     " SCHOOL - 52 ENGINEERING                         DEPARTMENT - 112 AERO ENG                                               "
     )
    (token-DEPARTMENT-LINE
-    (list "112 AERO ENG                                               ")))
+    (list "112 AERO ENG")))
+
+  (check-equal?
+   ((page-line-tokenize pre-2144-regexp-pairings)
+    "  0SCHOOL - 52 ENGINEERING                          DEPARTMENT - 112 AERO ENG                                                               "
+    )
+   (token-DEPARTMENT-LINE
+    (list "112 AERO ENG")))
 
   (check-equal?
    ((page-line-tokenize post-2142-regexp-pairings)

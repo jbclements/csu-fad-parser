@@ -13,7 +13,8 @@
          Level
          Rank
          AdministrativeLevel
-         AssocLine)
+         AssocLine
+         dept-number-mapping)
 
 
 ;;(make-parsed (listof (list string assoc-list)) (listof dept))
@@ -96,9 +97,15 @@
    [indirect-wtu : Nonnegative-Real])
   #:prefab)
 
+;; represents a line that associates labels with strings
+;; this is our representation of an arbitrary line taken
+;; from a table-style text document that's broken up into
+;; lines of data that are associated with column names.
 (define-type AssocLine
   (Listof (List Symbol String)))
 
+;; all ranks appearing in 2088 through 2178 after collapsing
+;; of some lexical abbreviations.
 (define-type Rank
   (U "ASSISTANT PRF/LECT B"
      "PROFESSOR/LECT D"
@@ -109,8 +116,24 @@
      "TEACHING ASST/LECT L"
      "OTHER"))
 
+;; all levels appearing in 2088 through 2178
 (define-type AdministrativeLevel
   (U "" "DEPT ACAD YR" "SCHOOL OTHER" "CAMPUS DEAN"
      "DEPT 12 MO." "DEPT ACADEMIC YR" "SCHOOL A/A DEAN"
      "CAMPUS DEAN/CHAIR" "DEPT 12 MONTH"
      "CAMPUS OTHER APPT"))
+
+;; a mapping between numbers and department names apparently
+;; used for split appointments and in page headers.
+;; this maybe shouldn't be in this file...
+;; inferred from fad-2178
+(define dept-number-mapping : (Listof (List Natural String))
+  '((112 "AERO ENG")
+    (132 "ALL SCHOOL")
+    (176 "CIVIL/ENV ENG")
+    (189 "COMPUTER SCIENCE")
+    (224 "BIOMEDICAL ENGINEERING")
+    (247 "ELECTRICAL ENGINEERING")
+    (363 "IND ENG")
+    (490 "MECHANICAL ENG")
+    (770 "WELDING AND METALLURGICAL ENGINEERING")))
