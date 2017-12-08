@@ -2,12 +2,14 @@
 
 ;; yikes, this file isn't in good shape.
 
-(require "all-data.rkt"
-         plot)
+
 
 
 
 #;(
+   (require "../all-data.rkt"
+         plot)
+   
 (define (is-overload? c)
   (and (eq? (col-ref 'kind c) 'special)
          (equal? (col-ref 'special c)
