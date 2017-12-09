@@ -37,7 +37,17 @@
 
 ;; represents information about an instructor, independent
 ;; of the courses he or she is teaching.
-(struct Instructor (header
+(struct Instructor (name
+                    id
+                    other-id
+                    rank
+                    tsf
+                    iaf
+                    adm-level
+                    osf
+                    split-appt
+                    split-frac
+                    iff
                     summary
                     specials
                     home?)

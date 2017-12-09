@@ -137,6 +137,25 @@
 ;; their other appointment, it's just that in their non-home
 ;; department, the bottom-line totals are uniformly zero. blecch.
 
+#|'((id other-id name rank tsf iaf adm-lvl osf split split-frac iff))
+;; frac-pattern: #px"[0-9]*\\.[0-9]+", safe to use string->number
+;; iaf : frac-pattern but could also be blank... but there's a clean
+;; switch from 0.0 to blank in 2144. So blank is safe to treat as 0.0.
+;; adm-level: there's clearly some normalisation to do here, but I don't
+;;   have the information to do it right, so I'm just going to leave what
+;;   I see in the FAD.
+;; osf: frac. no blanks.
+;; split appt: 5-digit codes indicate departments. I only have info
+;;  for school of engineering (52) departments, so I translate
+;;  these to strings, others are left as numbers. I'd love to fix
+;;  this, but I don't think I should spend the time, now.
+;; split-frac: can be blank. up til 2142, it was otherwise a straight
+;;  number. in 2144+, it looks like e.g. "IFF=0.220".
+;; iff : always a number. 
+|#
+
+
+
 
 (: file->parsed (Path-String Format -> Parsed))
 (define (file->parsed file fformat)
@@ -226,9 +245,9 @@
               (normalize-level (assert (atmostone lines 'level) string?))
               (assert (string->number (assert (atmostone lines 'enrollment) string?)) nat?)
               (collapse-classification lines)
-              (match fformat
-                ['pre-2144 (sum-by-instructor/allthesame lines 'a-ccu)]
-                [_ (sum-of-nums lines 'a-ccu)])
+              (case fformat
+                [(pre-2144) (sum-by-instructor/allthesame lines 'a-ccu)]
+                [(post-2142 post-2164 2174-fmt) (sum-of-nums lines 'a-ccu)])
               (match (atmostone lines 'group-code)
                 [#f #f]
                 [(? string? s) (assert (string->number s) nat?)]))))
@@ -385,15 +404,15 @@
 ;; (dept-pages format -> (listof instructorlines)
 (: dept->instructorlineses (dept-pages Format -> (Listof InstructorLines)))
 (define (dept->instructorlineses dept fformat)
-  (match fformat
-    ['pre-2144
+  (case fformat
+    [(pre-2144)
      (define instructor-sets
        (pre-2144-dept-lines-parser
         (dept-pages-detail dept)
         (dept-pages-name dept)))
      (filter InstructorLines-home?
              (map pre-2144-parse-instructor instructor-sets))]
-    [(or 'post-2142 'post-2164 '2174-fmt)
+    [(post-2142 post-2164 2174-fmt)
      (define instructor-sets
        (post-2142-dept-lines-parser
         (dept-pages-detail dept) (dept-pages-name dept)))
@@ -509,20 +528,6 @@
   indirect-wtu
   total-wtu)))
 
-#|'((id other-id name rank tsf iaf adm-lvl osf split split-frac iff))
-;; frac-pattern: #px"[0-9]*\\.[0-9]+", safe to use string->number
-;; iaf : frac-pattern but could also be blank... but there's a clean
-;; switch from 0.0 to blank in 2144. So blank is safe to treat as 0.0.
-;; osf: frac. no blanks.
-;; split appt: 5-digit codes indicate departments. I only have info
-;;  for school of engineering (52) departments, so I translate
-;;  these to strings, others are left as numbers. I'd love to fix
-;;  this, but I don't think I should spend the time, now.
-;; split-frac: can be blank. up til 2142, it was otherwise a straight
-;;  number. in 2144+, it looks like e.g. "IFF=0.220".
-;; iff : always a number. 
-|#
-
 ;; strip the information about courses out to transform an InstructorLines
 ;; into an instructor
 (: lines->instructor (InstructorLines -> Instructor))
@@ -535,12 +540,27 @@
     (error 'lines->instructor
            "unexpected set of summary fields in line: ~e"
            (InstructorLines-summary ilines)))
-  (Instructor (InstructorLines-header ilines)
+  (define header-line (InstructorLines-header ilines))
+  (Instructor (col-ref 'name header-line)
+              (col-ref 'id header-line)
+              (col-ref 'other-id header-line)
+              (normalize-rank (col-ref 'rank header-line))
+              (col-ref 'adm-lvl header-line)
+              (assert (string->number (col-ref 'tsf header-line)) nonnegative-real?)
+              (string->number/0 (col-ref 'iaf header-line))
+              (string->number/0 (col-ref 'osf header-line))
+              (parse-split-appt (col-ref 'split header-line))
+              ;; this should be cross-checked later (sigh):
+              (col-ref 'split-frac header-line)
+              (assert (string->number (col-ref 'iff header-line)) nonnegative-real?)
+              ;; FIXME this should be checked and then discarded:
               (InstructorLines-summary ilines)
               (map line->special (filter
                                   special?
                                   (InstructorLines-lines ilines)))
               (InstructorLines-home? ilines)))
+
+(define-predicate rank? Rank)
 
 ;; transform a special line into a Special structure
 (: line->special (KindAssocLine -> Special))
@@ -703,24 +723,56 @@
     [other
      (raise-argument-error 'dept-check-name "department name matching pattern" 0 n)]))
 
-;; turning off this mapping to clean things up.
-#;(
-;; shorten department names
-(: dept-name-matcher (String -> String))
-(define (dept-name-matcher name)
-  (match name
-    ["AERO ENG" "AERO"]
-    ["ALL SCHOOL" "ALLSCHOOL"]
-    ["CIVIL/ENV ENG" "CEENVE"]
-    ;; change to CSSE?
-    ["COMPUTER SCIENCE" "CSC"]
-    ["BIOMEDICAL ENGINEERING" "BMGE"]
-    ["ELECTRICAL ENGINEERING" "EE"]
-    ["IND ENG" "IME"]
-    ["MECHANICAL ENG" "ME"]
-    ["WELDING AND METALLURGICAL ENGINEERING" "MATE"])))
+(define (normalize-rank [rank : String]) : Rank
+  (match rank
+    ["ASSISTANT PRF/LECT B"  "ASSISTANT PRF/LECT B"]
+    ["TEACHING ASST/LECT L"  "TEACHING ASST/LECT L"]
+    ["INSTRUCTOR/LECT A"  "INSTRUCTOR/LECT A"]
+    ["PROFESSOR/LECT D"  "PROFESSOR/LECT D"]
+    ["ADMINISTRATOR"  "ADMINISTRATOR"]
+    ["TEACHING ASSOCIATE"  "TEACHING ASSOCIATE"]
+    ["TCHNG ASSOCIATE"  "TEACHING ASSOCIATE"]
+    ["ASSOC PROF/LECT C"  "ASSOCIATE PRF/LECT C"]
+    ["ASSOCIATE PRF/LECT C"  "ASSOCIATE PRF/LECT C"]
+    ["OTHER"  "OTHER"]
+    ["ASST PROF/LECT B"  "ASSISTANT PRF/LECT B"]
+    ))
 
+;; given a string e.g. "SPLIT APPT 52490", return
+;; a list of departments, represented either as names or as numbers.
+;; we don't have full information to allow us to translate numbers
+;; outside of CENG
+(define (parse-split-appt [s : String]) : (Listof (U String Natural))
+  (match s
+    [(regexp #px"SPLIT APPT ([ 0-9]+)" (list _ depts))
+     (define nums
+       ;; cast success guaranteed by regexp
+       (cast 
+        (map string->number
+             (regexp-split
+              #px" +"
+              (string-trim
+               ; success guaranteed by regexp
+               (assert depts string?))))
+        (Listof Natural)))
+     (map maybe-deptname nums)]
+    ["" '()]))
 
+;; given a 5-digit number, produce a department name if it's
+;; in the "52" range (a.k.a. in the College of Engineering).
+;; otherwise return it as a number.
+(define (maybe-deptname [n : Natural]) : (U String Natural)
+  ;; 52 is school of engineering
+  (cond [(< 99999 n) (raise-argument-error 'maybe-deptname
+                                           "5-digit number"
+                                           0 n)]
+        [(<= 52000 n 52999)
+         (match (assoc (- n 52000) dept-number-mapping)
+           [(list _ name) name]
+           [other (error 'maybe-deptname "no CENG dept found for number: ~e"
+                         n)])]
+        ;; we don't have information for depts outside of CENG
+        [else n]))
 
 ;; does this line describe a starred sequence?
 (: starred-sequence-line? (KindAssocLine -> Boolean))
