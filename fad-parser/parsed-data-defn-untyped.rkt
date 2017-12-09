@@ -1,3 +1,4 @@
+
 #lang racket
 
 ;; this file contains the structures used in Typed Racket
@@ -12,7 +13,9 @@
          (struct-out Offering)
          (struct-out FacultyOffering)
          (struct-out OfferingSequence)
-         (struct-out Special))
+         (struct-out Special)
+         dept-number-mapping
+         )
 
 
 ;;(make-parsed (listof (list string assoc-list)) (listof dept))
@@ -92,3 +95,13 @@
    indirect-wtu)
   #:prefab)
 
+(define dept-number-mapping
+  '((112 "AERO ENG")
+    (132 "ALL SCHOOL")
+    (176 "CIVIL/ENV ENG")
+    (189 "COMPUTER SCIENCE")
+    (224 "BIOMEDICAL ENGINEERING")
+    (247 "ELECTRICAL ENGINEERING")
+    (363 "IND ENG")
+    (490 "MECHANICAL ENG")
+    (770 "WELDING AND METALLURGICAL ENGINEERING")))
