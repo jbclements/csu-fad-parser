@@ -1,7 +1,12 @@
 #lang racket
 
+;; problems with TR/Racket interaction, commenting out for now:
+
+#;(
+
 (require "pages-to-parsed-tr.rkt"
          "one-quarter-data.rkt"
+         "parsed-data-defn.rkt"
          csse-scheduling/qtr-math)
 
 (define (as-int s)
@@ -305,5 +310,5 @@
 
 
 #;(export-groupings-relation)
-#;(export-offerseqs)
+#;(export-offerseqs))
 

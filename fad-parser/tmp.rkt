@@ -1,5 +1,7 @@
 #lang racket
 
+;; doesn't compile, commenting out for now:
+#;(
 (require fad-parser/all-data
          fad-parser/fad-to-pages
          fad-parser/pages-to-parsed-tr
@@ -181,4 +183,4 @@
                      (col-ref 'team-teaching-frac c))) g))))
  (filter
   (λ (c) (< 1 (length c)))
-  (Parsed-atoms parsed)))))))
+  (Parsed-atoms parsed))))))))
