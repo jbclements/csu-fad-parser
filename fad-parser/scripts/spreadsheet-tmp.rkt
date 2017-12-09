@@ -56,11 +56,22 @@
                             (= (string->number x) 0)))
                 fieldvals))
 
+(define (maybe-deptnum n)
+  ;; 52 is school of engineering
+  (cond [(<= 52000 n 52999)
+         (second (assoc (- n 52000) dept-number-mapping))]
+        [else n]))
+
 (map (λ (g) (list (first g) (length g)))
 (group-by
  (λ (x) x)
  (map (λ (header)
         (match (second (ninth header))
+          [(regexp #px"SPLIT APPT ([ 0-9]+)" (list _ depts))
+           (define nums (map string->number (regexp-split #px" +"
+                                                          (string-trim
+                                                           depts))))
+           (map maybe-deptnum nums)]
           [(regexp #px"^[0-9]*\\.[0-9]+$" (list m))
            (cond [(not (= (string->number m) 0)) 'ok]
                  [else 0.0])]
