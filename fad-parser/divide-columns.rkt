@@ -127,33 +127,31 @@
 
 (define-type SplitInfo (Listof SplitInfoField))
 (define-type SplitInfoField (List (List Natural Natural Natural Natural)
-                                  FmtLabel
+                                  FieldFmt
                                   Symbol))
 ;; new style. Replace old style?
 (define-type SplitInfo2 (Listof SplitInfoField2))
 (define-type SplitInfoField2
   (List Natural
-        FmtLabel
+        FieldFmt
         Symbol))
 
-(define-type FmtLabel (U 'id 'alpha 'alphanum 'alphanum= 'nums
+(define-type FieldFmt (U 'id 'alpha 'alphanum 'alphanum= 'nums
                          'course-num 'course-id
                          'seq-num 'decimal))
 
-(: pat (FmtLabel -> Regexp))
+(: pat (FieldFmt -> Regexp))
 (define (pat sym)
-  (match sym
-    ['id #px"^(0 |)XXXXX\\d\\d\\d\\d$"]
-    ['alpha #px"^[-A-Z'/ ]*$"]
-    ['alphanum #px"^[-A-Z'/ 0-9.]*$"]
-    ['alphanum= #px"^[-A-Z'/ 0-9=.]*$"]
-    ['nums #px"^\\d+$"]
-    ['course-num #px"^\\d\\d\\d\\d( X)?$"]
-    ['seq-num #px"^(\\*|)\\d+$"]
-    ['decimal #px"^[\\d]*\\.[\\d]+$"]
-    ['course-id #px"^[A-Z]{2,4} +[0-9]{4}$"]))
-
-
+  (case sym
+    [(id) #px"^(0 |)XXXXX\\d\\d\\d\\d$"]
+    [(alpha) #px"^[-A-Z'/ ]*$"]
+    [(alphanum) #px"^[-A-Z'/ 0-9.]*$"]
+    [(alphanum=) #px"^[-A-Z'/ 0-9=.]*$"]
+    [(nums) #px"^\\d+$"]
+    [(course-num) #px"^\\d\\d\\d\\d( X)?$"]
+    [(seq-num) #px"^(\\*|)\\d+$"]
+    [(decimal) #px"^[\\d]*\\.[\\d]+$"]
+    [(course-id) #px"^[A-Z]{2,4} +[0-9]{4}$"]))
 
 ;; given a split-info and a string and a format selector,
 ;; return an association list of the form (Listof (List Symbol String))
@@ -176,8 +174,8 @@
      (list (string-length str))))
   (for/list ([start full-cols-list]
              [stop (rest full-cols-list)]
-             [pat-sym : FmtLabel
-                      (map (ann second (SplitInfoField -> FmtLabel))
+             [pat-sym : FieldFmt
+                      (map (ann second (SplitInfoField -> FieldFmt))
                            split-info)]
              [field-name (map (ann third (SplitInfoField -> Symbol))
                               split-info)])
@@ -204,8 +202,8 @@
      (list (string-length str))))
   (for/list ([start full-cols-list]
              [stop (rest full-cols-list)]
-             [pat-sym : FmtLabel
-                      (map (ann second (SplitInfoField2 -> FmtLabel))
+             [pat-sym : FieldFmt
+                      (map (ann second (SplitInfoField2 -> FieldFmt))
                            split-info)]
              [field-name (map (ann third (SplitInfoField2 -> Symbol))
                               split-info)])
@@ -438,7 +436,7 @@
            (map (inst first String Any)
                 class-header-to-field-info-map)
            col-headers))
-  (for/list : (Listof (List Natural FmtLabel Symbol))
+  (for/list : (Listof (List Natural FieldFmt Symbol))
     ([col-header (in-list col-headers)]
      [start-posn (in-list (cons 0 x-columns))])
     (define field-info (match (assoc col-header class-header-to-field-info-map)
@@ -446,9 +444,9 @@
                          [other other]))
     (ann
      (list start-posn
-           (cast (second field-info) FmtLabel)
+           (cast (second field-info) FieldFmt)
            (third field-info))
-     (List Natural FmtLabel Symbol))))
+     (List Natural FieldFmt Symbol))))
 
 (define 2174-course-splitinfo : SplitInfo2
   (template->split-info 2174-class-template

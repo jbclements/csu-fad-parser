@@ -1,5 +1,8 @@
 #lang racket
 
+;; commenting out because of TR/Racket issues, but this will be a problem
+;; real soon now...
+#;(
 ;; instructor data needs to be merged, not just added.
 ;; this file does that.
 
@@ -325,5 +328,5 @@ new-instructors
 
 
 #;(export-groupings-relation)
-#;(export-offerseqs)
+#;(export-offerseqs))
 

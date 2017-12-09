@@ -39,10 +39,7 @@
 (provide (struct-out InstructorLines)
          file->parsed
          parse-pages
-         dept->instructors
-         lines->instructor
          instructor-courses
-         dept-short-name
          col-ref
          line-kind
          cols-ref
@@ -151,13 +148,13 @@
   (define instructorlineseses
     (for/list : (Listof (Listof InstructorLines))
       ([dept-pages (in-list (fad-pages-depts fad-pages))])
-      (dept->instructors dept-pages fformat)))
+      (dept->instructorlineses dept-pages fformat)))
   (define depts
     (for/list : (Listof Dept)
       ([dept-pages (in-list (fad-pages-depts fad-pages))]
        [instructorlineses (in-list instructorlineseses)])
       (define instructors (map lines->instructor instructorlineses))
-      (Dept (dept-short-name (dept-pages-name dept-pages))
+      (Dept (dept-check-name (dept-pages-name dept-pages))
             (dept-pages-summary dept-pages)
             instructors)))
   (define instructorlineses (apply append instructorlineseses))
@@ -386,13 +383,14 @@
 
 
 ;; (dept-pages format -> (listof instructorlines)
-(: dept->instructors (dept-pages Format -> (Listof InstructorLines)))
-(define (dept->instructors dept fformat)
+(: dept->instructorlineses (dept-pages Format -> (Listof InstructorLines)))
+(define (dept->instructorlineses dept fformat)
   (match fformat
     ['pre-2144
      (define instructor-sets
        (pre-2144-dept-lines-parser
-        (dept-pages-detail dept) (dept-pages-name dept)))
+        (dept-pages-detail dept)
+        (dept-pages-name dept)))
      (filter InstructorLines-home?
              (map pre-2144-parse-instructor instructor-sets))]
     [(or 'post-2142 'post-2164 '2174-fmt)
@@ -687,8 +685,8 @@
         [else (assert (string->number str)
                       nonnegative-real?)]))
 
-(: dept-short-name (String -> String))
-(define (dept-short-name n)
+(: dept-check-name (String -> String))
+(define (dept-check-name n)
   (match n
     [(regexp #px"(\\d+) (.*)" (list _ num name))
      ;; check that the number and the name match as expected
@@ -698,12 +696,12 @@
                            dept-number-mapping))
      (unless (and (pair? lookup-names)
                   (member name (rest lookup-names)))
-       (error 'dept-short-name
+       (error 'dept-check-name
               "unexpected number/deptname pairing: ~e"
               n))
      (assert name string?)]
     [other
-     (raise-argument-error 'dept-short-name "department name matching pattern" 0 n)]))
+     (raise-argument-error 'dept-check-name "department name matching pattern" 0 n)]))
 
 ;; turning off this mapping to clean things up.
 #;(
@@ -760,7 +758,7 @@
 (module+ test
   (require typed/rackunit)
 
-  (check-equal? (dept-short-name "112 AERO ENG")
+  (check-equal? (dept-check-name "112 AERO ENG")
                 "AERO")
 
  )
