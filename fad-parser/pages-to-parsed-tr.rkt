@@ -511,6 +511,20 @@
   indirect-wtu
   total-wtu)))
 
+#|'((id other-id name rank tsf iaf adm-lvl osf split split-frac iff))
+;; frac-pattern: #px"[0-9]*\\.[0-9]+", safe to use string->number
+;; iaf : frac-pattern but could also be blank... but there's a clean
+;; switch from 0.0 to blank in 2144. So blank is safe to treat as 0.0.
+;; osf: frac. no blanks.
+;; split appt: 5-digit codes indicate departments. I only have info
+;;  for school of engineering (52) departments, so I translate
+;;  these to strings, others are left as numbers. I'd love to fix
+;;  this, but I don't think I should spend the time, now.
+;; split-frac: can be blank. up til 2142, it was otherwise a straight
+;;  number. in 2144+, it looks like e.g. "IFF=0.220".
+;; iff : always a number. 
+|#
+
 ;; strip the information about courses out to transform an InstructorLines
 ;; into an instructor
 (: lines->instructor (InstructorLines -> Instructor))

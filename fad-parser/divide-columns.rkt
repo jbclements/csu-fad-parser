@@ -32,23 +32,41 @@
 ;; parse an instructor header line
 (: parse-instructor-header-line (String Format -> AssocLine))
 (define (parse-instructor-header-line line fformat)
-  (match fformat
-    ['2174-fmt
-     (string-split-cols-2 2174-instructor-splitinfo line)]
-    [_
-     (string-split-cols instructor-header-split-info line fformat)]))
+  (case fformat
+    [(post-2164 2174-fmt)
+     (string-split-cols-2 2168-instructor-splitinfo line)]
+    [(post-2142)
+     ;; temp hack to allow comparison of old and new results...
+     ;; ... can be changed back to just 'cons' when instructor fields are parsed into a struct
+     (insert-as-second
+      '(other-id "")
+      (string-split-cols-2 2162-instructor-splitinfo line))]
+    [(pre-2144)
+     ;; FIXME same here:
+     (insert-as-second
+      '(other-id "")
+      (string-split-cols-2 2122-instructor-splitinfo line))]))
+
+;; insert as second element of list
+(: insert-as-second (All (T) (T (Listof T) -> (Listof T))))
+(define (insert-as-second elt l)
+  (cond [(pair? l) (cons (first l) (cons elt (rest l)))]
+        [else (raise-argument-error
+               'insert-as-second
+               "nonempty list"
+               1 elt l)]))
 
 ;; how many blanks are required for an extra-sequence line?
-(define (extra-sequence-blanks fmt) : Natural
-  (match fmt
-    ['pre-2144 38]
-    [_         34]))
+(define (extra-sequence-blanks [fmt : Format]) : Natural
+  (case fmt
+    [(pre-2144) 38]
+    [(post-2142 post-2164 2174-fmt) 34]))
 
 ;; how many blanks are required for a special?
-(define (special-blanks fmt) : Natural
-  (match fmt
-    ['pre-2144 10]
-    [_         8]))
+(define (special-blanks [fmt : Format]) : Natural
+  (case fmt
+    [(pre-2144) 10]
+    [(post-2142 post-2164 2174-fmt) 8]))
 
 ;; parse a course line
 (: parse-course-line (Format -> (String -> BodyLine)))
@@ -191,6 +209,12 @@
                            split-info)]
              [field-name (map (ann third (SplitInfoField2 -> Symbol))
                               split-info)])
+    ;; the dividing column should be blank:
+    (when (and (< start (string-length str)) (not (equal? #\space (string-ref str start))))
+      (error 'string-split-cols-2
+             "expected to find a space in column ~v, pre-char-post: ~v"
+             start
+             (list (substring str 0 start) (string-ref str start) (substring str (add1 start)))))
     (define substr (string-trim (substring str (min start len) (min stop len))))
     (unless (or (string=? "" substr) (regexp-match (pat pat-sym) substr))
       (error 'split-string-cols 
@@ -200,23 +224,9 @@
     (list field-name substr)))
 
 ;; I'm now using a template-based approach to derive the column
-;; offsets. I haven't yet applied this to FADs prior to 2174.
+;; offsets. I've applied this to some formats of some lines.
 ;; If all of them are moved to the template approach, these can
 ;; be deleted.
-(: instructor-header-split-info SplitInfo)
-(define instructor-header-split-info
-  '(((0 0 0 0) id id)
-    ((13 10 12 11) nums other-id)
-    ((13 10 29 28) alpha name)
-    ((41 38 53 51) alpha rank)
-    ((63 59 74 71) decimal tsf)
-    ((68 65 81 78) decimal iaf) 
-    ((80 71 88 85) alphanum adm-lvl)
-    ((93 86 106 102) decimal osf)
-    ((101 91 113 109) alphanum split) 
-    ((124 116 136 131) alphanum= split-frac)
-    ((130 127 148 142) decimal iff)))
-
 (: course-info-split-info SplitInfo)
 (define course-info-split-info
   '(((0 0 0 0) alpha subject)
@@ -309,20 +319,48 @@
 
 (define 2174-instructor-template
   #<<|
-          X                X                        X                    X      X     X                  X     X                   X               X
-   SSN        EMPLOYEE ID     NAME                   RANGE CODE            TSF    IAF     ADM-LVL           OSF        <split>       <splitfrac>     IFF
+          X                X                        X                    X      X     X                  X     X                       X           X
+   SSN        EMPLOYEE ID     NAME                   RANGE CODE            TSF    IAF     ADM-LVL           OSF        <split>          <sf>         IFF
+
+ XXXXX1234  000000001234123  B J DDDD                TCHNG ASSOCIATE      0.400  0.000                    0.000                                     0.400
+ XXXXX1234  000000012341234  D D CCCC                PROFESSOR/LECT D     1.000  0.780  DEPT ACADEMIC YR  0.000                                     0.220
+ XXXXX1234  000000012341234  M A BBBB                INSTRUCTOR/LECT A    0.804  0.000                    0.000  SPLIT APPT 20108       IFF=0.267   0.537
+ XXXXX1234  000000000001234  O A AAAAAAA             ADMINISTRATOR        1.000  1.000  CAMPUS DEAN/CHAIR 0.000                                     0.000
+ XXXXX1234  000000012341234  O A AAAAAAAA            ASSOC PROF/LECT C    0.801  0.000                    0.000  SPLIT APPT 40365 52363 IFF=0.534   0.267
+|
+  )
+
+(define 2162-instructor-template
+  #<<|
+          X                          X                  X        X      X            X      X                      X          X     
+   SSN         NAME                   RANGE CODE            TSF    IAF     ADM-LVL      OSF         <split>         <sf>         IFF
         ASSIGNED TIME ACTIVITY
-                                                                           TSF    IAF                       OSF                                      IFF
- XXXXX4730  000000007319825  B J BULDIVON            TCHNG ASSOCIATE      0.400  0.000                    0.000                                     0.400
- XXXXX8023  000000000819101  D D MARTHALL            PROFESSOR/LECT D     1.000  0.780  DEPT ACADEMIC YR  0.000                                     0.220
- XXXXX5340  000000004795260  M A ISOLA               INSTRUCTOR/LECT A    0.804  0.000                    0.000  SPLIT APPT 20108       IFF=0.267   0.537
- XXXXX1234  000000000001234  J P MEATHER             ADMINISTRATOR        1.000  1.000  CAMPUS DEAN/CHAIR 0.000                                     0.000
+
+ XXXXX1234    A X AAAAAAAAAA          ASST PROF/LECT B     1.000  0.000                0.000                                    1.000
+ XXXXX1234    A X AAAAA               ASST PROF/LECT B     1.000  0.000                0.000                                    1.000
+ XXXXX1234    A X BBBBB               PROFESSOR/LECT D     1.000  0.780  DEPT ACAD YR  0.000                                    0.220
+ XXXXX1234    A X CCCCC               ASSOC PROF/LECT C    1.000  0.000               0.000  SPLIT APPT 52176       IFF=0.467   0.533
+
+
+|
+  )
+
+(define 2122-instructor-template
+  #<<|
+              X                         X                    X       X           X         X        X                      X     X
+  SSN            NAME                          RANGE CODE      TSF         IAF     ADM-LVL     OSF    <split>                <sf>  IFF      
+
+  0 XXXXX1234    A X AAAAA               ASSISTANT PRF/LECT B  1.000                                                              1.000     
+  0 XXXXX1234    A X BBBBB               ASSOCIATE PRF/LECT C  1.000        .670   AY DEPT                                         .330     
+  0 XXXXX1234    A X CCCCC               ASSOCIATE PRF/LECT C   .833        .500   OTH CAM           SPLIT APPT 52176        .333  .000     
+  0 XXXXX1234    A X DDDDD               ASSOCIATE PRF/LECT C  1.000                            .067                               .933     
+  0 XXXXX1234    A X EEEEE               PROFESSOR/LECT D      1.000        .600   12M DEPT                                        .400     
+
 |
   )
 
 (define instructor-header-to-field-info-map : (Listof (List String Symbol Symbol))
   '(("SSN" id id) ;; 'id is a TERRIBLE name for this. they can collide!
-    ("EMPLOYEE ID" nums other-id)
     ("NAME" alpha name)
     ("RANGE CODE" alpha rank)
     ("TSF" decimal tsf)
@@ -330,14 +368,19 @@
     ("ADM-LVL" alphanum adm-lvl)
     ("OSF" decimal osf)
     ("<split>" alphanum split) 
-    ("<splitfrac>" alphanum= split-frac)
+    ("<sf>" alphanum= split-frac)
     ("IFF" decimal iff)))
+
+(define 2168-instructor-header-to-field-info-map : (Listof (List String Symbol Symbol))
+  (cons '("EMPLOYEE ID" nums other-id)
+        instructor-header-to-field-info-map))
 
 (define 2174-instructor-summary-template
   #<<|
-                            X                                                                  X     X     X      X      X
+                            X                                                                X       X     X      X      X
  TITLE                       ENR                                                                 SCU    FCH  D-WTU  I-WTU  T-WTU
  TOTAL INDIVIDUAL             55                                                                 81.3  14.9    8.1    1.0    9.1
+ TOTAL INDIVIDUAL            397                                                               1588.0  11.4   15.0    0.0   15.0
 |
   )
 
@@ -411,8 +454,16 @@
   (template->split-info 2174-class-template
                         class-header-to-field-info-map))
 
-(define 2174-instructor-splitinfo : SplitInfo2
+(define 2168-instructor-splitinfo : SplitInfo2
   (template->split-info 2174-instructor-template
+                        2168-instructor-header-to-field-info-map))
+
+(define 2122-instructor-splitinfo : SplitInfo2
+  (template->split-info 2122-instructor-template
+                        instructor-header-to-field-info-map))
+
+(define 2162-instructor-splitinfo : SplitInfo2
+  (template->split-info 2162-instructor-template
                         instructor-header-to-field-info-map))
 
 (define 2174-instructor-summary-splitinfo : SplitInfo2
@@ -472,62 +523,8 @@
      (indirect-wtu "0.0")
      (total-wtu "15.0")))
 
-  (check-equal?
-   (string-split-cols
-    instructor-header-split-info
-    " XXXXX5705    E I ELGHANDOUR          ASSOC PROF/LECT C    1.000  0.000               0.000  SPLIT APPT 52176       IFF=0.467   0.533"
-    'post-2142)
-   '((id "XXXXX5705")
-     (other-id "")
-     (name "E I ELGHANDOUR")
-     (rank "ASSOC PROF/LECT C")
-     (tsf "1.000")
-     (iaf "0.000" )
-     (adm-lvl "")
-     (osf "0.000")
-     (split "SPLIT APPT 52176")
-     (split-frac "IFF=0.467")
-     (iff "0.533"))
-   )
+  
 
-  (check-equal?
-   (string-split-cols
-    instructor-header-split-info
-    " XXXXX8231  000000000017182  K T DEVANEY             \
-PROFESSOR/LECT D     0.867  0.000                    0.000  \
-SPLIT APPT 20108       IFF=0.200   0.667"
-    'post-2164)
-   '((id "XXXXX8231")
-     (other-id "000000000017182")
-     (name "K T DEVANEY")
-     (rank "PROFESSOR/LECT D")
-     (tsf "0.867")
-     (iaf "0.000" )
-     (adm-lvl "")
-     (osf "0.000")
-     (split "SPLIT APPT 20108")
-     (split-frac "IFF=0.200")
-     (iff "0.667"))
-   )
-
-  (check-equal?
-   (string-split-cols
-    instructor-header-split-info
-    " XXXXX9533  000000001284877 M A ESOLA              \
-INSTRUCTOR/LECT A   0.804  0.000                   0.000  \
-SPLIT APPT 20108      IFF=0.267  0.537"
-    '2174-fmt)   
-   '((id "XXXXX9533")
-     (other-id "000000001284877")
-     (name "M A ESOLA")
-     (rank "INSTRUCTOR/LECT A")
-     (tsf "0.804")
-     (iaf "0.000" )
-     (adm-lvl "")
-     (osf "0.000")
-     (split "SPLIT APPT 20108")
-     (split-frac "IFF=0.267")
-     (iff "0.537")))
 
   (check-equal?
    (string-split-cols
@@ -575,5 +572,6 @@ SPLIT APPT 20108      IFF=0.267  0.537"
      (direct-wtu "")
      (indirect-wtu "2.0")))
 
-  
+
+
   )
