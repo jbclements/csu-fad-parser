@@ -53,9 +53,28 @@
 ;; iff : always a number. 
 
 (define fieldvals
-  (map (λ (header) (second (list-ref header 10))) headers))
+  (map (λ (header) (second (list-ref header 9))) headers))
 
 (length (remove-duplicates fieldvals))
+
+
+(define fv2
+  (group-by
+   first
+  (remove-duplicates
+   (filter (λ (x) (not (equal? (second x) "")))
+           (map (λ (header) (list
+                             (second (third header))
+                             (second (list-ref header 9)))) headers)))))
+
+fv2
+
+
+
+#;(
+
+
+
 (length (filter (λ (x) (equal? x "")) fieldvals))
 (length (filter (λ (x) (and (string->number x)
                             (= (string->number x) 0)))
@@ -88,6 +107,6 @@
            (cond [(not (= (string->number m) 0)) 'ok]
                  [else 0.0])]
           [other other]))
-      headers)))
+      headers))))
 
 ;(map (λ (summary) (list-ref summary fieldnum)) summaries)

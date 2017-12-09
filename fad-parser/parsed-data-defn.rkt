@@ -12,7 +12,6 @@
          (struct-out Special)
          Level
          Rank
-         AdministrativeLevel
          AssocLine
          dept-number-mapping)
 
@@ -34,10 +33,35 @@
   #:prefab)
 
 
+#|TEMP DELETE
+'((id other-id name rank tsf iaf adm-lvl osf split split-frac iff))
+;; frac-pattern: #px"[0-9]*\\.[0-9]+", safe to use string->number
+;; iaf : frac-pattern but could also be blank... but there's a clean
+;; switch from 0.0 to blank in 2144. So blank is safe to treat as 0.0.
+;; osf: frac. no blanks.
+;; split appt: 5-digit codes indicate departments. I only have info
+;;  for school of engineering (52) departments, so I translate
+;;  these to strings, others are left as numbers. I'd love to fix
+;;  this, but I don't think I should spend the time, now.
+;; split-frac: can be blank. up til 2142, it was otherwise a straight
+;;  number. in 2144+, it looks like e.g. "IFF=0.220".
+;; iff : always a number. 
+
+|#
 
 ;; represents information about an instructor, independent
 ;; of the courses he or she is teaching.
-(struct Instructor ((header : AssocLine)
+(struct Instructor ([name : String]
+                    [id : String]
+                    [other-id : String]
+                    [rank : Rank]
+                    [adm-level : String]
+                    [tsf : Nonnegative-Real]
+                    [iaf : Nonnegative-Real]
+                    [osf : Nonnegative-Real]
+                    [split-appt : (Listof (U String Natural))]
+                    [split-frac : String]
+                    [iff : Nonnegative-Real]
                     (summary : AssocLine)
                     (specials : (Listof Special))
                     [home? : Boolean])
@@ -115,13 +139,6 @@
      "INSTRUCTOR/LECT A"
      "TEACHING ASST/LECT L"
      "OTHER"))
-
-;; all levels appearing in 2088 through 2178
-(define-type AdministrativeLevel
-  (U "" "DEPT ACAD YR" "SCHOOL OTHER" "CAMPUS DEAN"
-     "DEPT 12 MO." "DEPT ACADEMIC YR" "SCHOOL A/A DEAN"
-     "CAMPUS DEAN/CHAIR" "DEPT 12 MONTH"
-     "CAMPUS OTHER APPT"))
 
 ;; a mapping between numbers and department names apparently
 ;; used for split appointments and in page headers.
