@@ -2,7 +2,7 @@
 
 ;; old old old
 
-
+#;(
 (require "fad-parser.rkt"
          ;;"../pages-to-parsed.rkt"
          "../all-data.rkt"
@@ -113,4 +113,4 @@
 #;(stats->file
  
  "total wtus by faculty member" "wtu"
- "/tmp/cs-wtus.pdf"))
+ "/tmp/cs-wtus.pdf")))
