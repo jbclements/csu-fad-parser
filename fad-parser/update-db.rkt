@@ -1,40 +1,27 @@
 #lang racket
 
-;; commenting out because of TR/Racket issues, but this will be a problem
-;; real soon now...
-#;(
 ;; instructor data needs to be merged, not just added.
 ;; this file does that.
+
 
 (require "pages-to-parsed-tr.rkt"
          "one-quarter-data.rkt"
          "make-connection.rkt"
+         "tsv-export.rkt"
          db)
+
+;; commenting out because of TR/Racket issues, but this will be a problem
+;; real soon now...
+#;(
+
+
 
 (define qtr-nums '(2178))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
 (define (export-data filename records)
-  (with-output-to-file filename
-    (lambda ()
-      (for ([c (in-list records)])
-        (define data
-          (for/list ([d (in-list c)])
-            (match d
-              [#f "\\N"]
-              ['null "\\N"]
-              [(? string? s)
-               (when (ormap (λ(ch)
-                              (member ch '(#\tab #\newline #\\)))
-                            (string->list s))
-                 (error 'export-data
-                        "no bad chars allowed in strings: ~e\n"
-                        s))
-               s]
-              [(? exact-integer? i) i])))
-        (display (apply ~a (append (add-between data "\t") (list "\n"))))))
-    #:exists 'truncate))
+  (tsv-export filename records))
 
 (define conn (make-connection))
 
