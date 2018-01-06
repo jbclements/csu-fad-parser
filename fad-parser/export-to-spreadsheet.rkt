@@ -111,6 +111,8 @@
                 'space 'facility-type 'team-teaching-frac ;; other fields of offerseq
                 'indirect-wtu ;; used for specials
                 'total-wtu ;; always blank
+                'corrected-classification
+                'corrected-dwtu
                 )))
 
 (when (check-duplicates spreadsheet-fields)
@@ -160,6 +162,22 @@
     (list (cons 'qtr qtr)
           (cons 'kind kind))
     ((flatten-struct table) offering))))
+
+(: flatten-faculty-offering (Natural -> (FacultyOffering -> (Listof Any))))
+(define ((flatten-faculty-offering qtr) offerfac)
+  (cond [(member (list (Faculty-Offering-subject offerfac)
+                       (Faculty-Offering-coursenum offerfac))
+                 miscategorized-senior-projects)
+         (list (list 'corrected-classification 36)
+               (list 'corrected-dwtu (* )))]
+    )
+  (assoc->csv-row
+   (append
+    (list (cons 'qtr qtr)
+          (cons 'kind "faculty-offering")
+          (cons ))
+    ((flatten-struct special-table) special))))
+
 
 (: flatten-instructor (Natural String -> (Instructor -> (Listof Any))))
 (define ((flatten-instructor qtr dept) instructor)
