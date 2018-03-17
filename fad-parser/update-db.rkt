@@ -8,15 +8,12 @@
          "one-quarter-data.rkt"
          "make-connection.rkt"
          "tsv-export.rkt"
+         "parsed-data-defn.rkt"
          db)
 
-;; commenting out because of TR/Racket issues, but this will be a problem
-;; real soon now...
-#;(
 
 
-
-(define qtr-nums '(2178))
+(define qtr-nums '(2182))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
@@ -33,8 +30,9 @@
 
 (define parsed-qtrs (map qtr->parsed qtr-nums))
 
+
 (define (as-int s)
-  (real-as-int (string->number/0 s)))
+  (real-as-int s))
 
 (define (real-as-int r)
   (inexact->exact (round (* 1000 r))))
@@ -49,17 +47,17 @@
        append
        (for/list  ([dept (Parsed-depts q)])
          (for/list ([instr (Dept-instructors dept)])
-           (define hdr (Instructor-header instr))
-           (define soc (match (col-ref 'id hdr)
+           ;(define hdr (Instructor-header instr))
+           (define soc (match (Instructor-id instr)
                          [(regexp #px"0 (.*)" (list dc soc)) soc]
                          [(regexp #px"XXXXX[0-9]{4}" (list soc)) soc]))
-           (list (col-ref 'name hdr)
-                 (col-ref 'name hdr)
+           (list (Instructor-name instr)
+                 (Instructor-name instr)
                  soc))))))))
+
 
 (define new-instructors
   (remove* existing-instructors all-instructors))
-
 
 
 new-instructors
@@ -73,7 +71,11 @@ new-instructors
      i)))
 
 (define (export-instructors)
-  (export-data "/tmp/instructors.txt" new-instructors))
+  (export-data "/tmp/instructors.tsv" new-instructors))
+
+
+
+
 
 (define (normalize-rank rank)
   (match rank
@@ -100,31 +102,32 @@ new-instructors
       (for/list  ([dept (Parsed-depts q)])
         (for/list ([instr (Dept-instructors dept)]
                    #:when (Instructor-home? instr))
-          (define hdr (Instructor-header instr))
           (list
-           (col-ref 'name hdr)
+           (Instructor-name instr)
            qtr
            (Dept-name dept)
-           (as-int (col-ref 'tsf hdr))
-           (as-int (col-ref 'iaf hdr))
-           (as-int (col-ref 'osf hdr))
-           (col-ref 'adm-lvl hdr)
-           (normalize-rank (col-ref 'rank hdr)))))))))
+           (as-int (Instructor-tsf instr))
+           (as-int (Instructor-iaf instr))
+           (as-int (Instructor-osf instr))
+           (Instructor-adm-level instr)
+           (normalize-rank (Instructor-rank instr)))))))))
+
 
 (define (export-instructor-statuses)
-  (export-data  "/tmp/instructorstatuses.txt" all-instructor-statuses))
+  (export-data  "/tmp/instructorstatuses.tsv" all-instructor-statuses))
 
+
+;; don't think we're checking this any more.
 #;(define (export-course-names)
-  (export-data "/tmp/courses.txt" all-course-names))
-
-
+  (export-data "/tmp/courses.tsv" all-course-names))
 
 #;(define all-subjects
   (remove-duplicates (map list (map first all-course-names))))
 
 ;; no point in making this a table.
 #;(define (export-subjects)
-  (export-data "/tmp/subjects.txt" all-subjects))
+  (export-data "/tmp/subjects.tsv" all-subjects))
+
 
 #;((define all-specials
   (apply
@@ -152,7 +155,8 @@ new-instructors
             (col-ref/g 'special course))))))
 
 (define (export-specials)
-  (export-data "/tmp/specialcredits.txt" all-specials)))
+  (export-data "/tmp/specialcredits.tsv" all-specials)))
+
 
 #;(for ([q parsed-qtrs]
       [qtr qtr-nums])
@@ -185,6 +189,10 @@ new-instructors
 (define (remove-empties l)
   (filter (lambda (elt) (not (string=? elt ""))) l))
 
+(define (val-or-null n)
+  (cond [(not n) 'null]
+        [else n]))
+
 (define all-offerings
   (apply
    append
@@ -198,12 +206,13 @@ new-instructors
              (Offering-discipline o)
              (Offering-level o)
              (Offering-enrollment o)
-             (Offering-classification o)
+             (val-or-null (Offering-classification o))
              (real-as-int (Offering-accu o))
-             (Offering-groupcode o))))))
+             (val-or-null (Offering-groupcode o)))))))
+
 
 (define (export-offerings)
-  (export-data "/tmp/offerings.txt" all-offerings))
+  (export-data "/tmp/offerings.tsv" all-offerings))
 
 (define all-offerfacs
   (apply
@@ -221,32 +230,32 @@ new-instructors
              (real-as-int (FacultyOffering-dwtu o)))))))
 
 (define (export-offerfacs)
-  (export-data "/tmp/offerfacs.txt" all-offerfacs))
+  (export-data "/tmp/offerfacs.tsv" all-offerfacs))
 
 
 #;(define (corrected course)
-  (cond 
-    [(and (has-group? course)
-          (is-senior-project? course))
-     (error 'corrected-dwtus
-            "can't deal with senior project courses"
-            " that also have group codes.")]
-    [(is-senior-project? course)
-     (list 36
-           (* (string->number
-               (col-ref/g 'enrollment course))
-              (string->number
-               (col-ref/g 'team-teaching-frac course))
-              1/3))]
-    [else
-     (with-handlers ([exn:fail?
-                      (λ (exn)
-                        (fprintf (current-error-port)
-                                 "error on course: ~v\n"
-                                 course)
-                        (raise exn))])
+    (cond 
+      [(and (has-group? course)
+            (is-senior-project? course))
+       (error 'corrected-dwtus
+              "can't deal with senior project courses"
+              " that also have group codes.")]
+      [(is-senior-project? course)
+       (list 36
+             (* (string->number
+                 (col-ref/g 'enrollment course))
+                (string->number
+                 (col-ref/g 'team-teaching-frac course))
+                1/3))]
+      [else
+       (with-handlers ([exn:fail?
+                        (λ (exn)
+                          (fprintf (current-error-port)
+                                   "error on course: ~v\n"
+                                   course)
+                          (raise exn))])
          (list (string->number/0 (course-classification course))
-           (nums-cleanup (col-ref/g 'direct-wtu course))))]))
+               (nums-cleanup (col-ref/g 'direct-wtu course))))]))
 
 (define (nums-cleanup l)
   (match l
@@ -260,60 +269,60 @@ new-instructors
 
 
 #;(define all-offerseqs
-  (apply
-   append
-   (for/list ([q parsed-qtrs]
-             [qtr qtr-nums])
-     (printf "qtr: ~v\n" qtr)
     (apply
      append
-    (for*/list  ([dept (parsed-depts q)]
-                 [instr (dept-instructors dept)])
-      (for/list ([course (instructor-courses instr)]
-                 #:when (not (special? course)))
-        (match-define (list newclass newdwtus)
-          (corrected course))
-        (define seqnums (col-ref/g 'sequence course))
-        (for/list ([seq (in-list seqnums)]
-                   [ttf (in-list col-ref/g 'team-teaching-frac course)]
-                   [scu (in-list col-ref/g 'scu course)]
-                   [fch (in-list col-ref/g 'fch course)]
-                   [dwtu])
-          )
+     (for/list ([q parsed-qtrs]
+                [qtr qtr-nums])
+       (printf "qtr: ~v\n" qtr)
+       (apply
+        append
+        (for*/list  ([dept (parsed-depts q)]
+                     [instr (dept-instructors dept)])
+          (for/list ([course (instructor-courses instr)]
+                     #:when (not (special? course)))
+            (match-define (list newclass newdwtus)
+              (corrected course))
+            (define seqnums (col-ref/g 'sequence course))
+            (for/list ([seq (in-list seqnums)]
+                       [ttf (in-list col-ref/g 'team-teaching-frac course)]
+                       [scu (in-list col-ref/g 'scu course)]
+                       [fch (in-list col-ref/g 'fch course)]
+                       [dwtu])
+              )
         
-        `(,qtr
-          ,(col-ref/g 'dept course)
-          ,(col-ref/g 'course-num course)
-          ,(col-ref/g 'section course)
-          ,seq
-          ,(instructor-name instr))
+            `(,qtr
+              ,(col-ref/g 'dept course)
+              ,(col-ref/g 'course-num course)
+              ,(col-ref/g 'section course)
+              ,seq
+              ,(instructor-name instr))
         
-        (define good-idx
-          (for/first ([seqnum (in-list seqnums)]
-                      [i (in-naturals)]
-                      #:when (regexp-match 
-                              #px"^\\*" seqnum))
-            i))
-        (append
+            (define good-idx
+              (for/first ([seqnum (in-list seqnums)]
+                          [i (in-naturals)]
+                          #:when (regexp-match 
+                                  #px"^\\*" seqnum))
+                i))
+            (append
          
-         (map 
-          (lambda (col)
-            (inexact->exact
-             (round (* 1000 (string->number/0 (col-ref/g col course))))))
-          '(team-teaching-frac
-            scu
-            faculty-contact-hours
-            direct-wtu))
-         (list newclass
-               (inexact->exact
-                (round (* 1000 newdwtus)))
-               (list-ref (col-ref/g 'facility-type course)
-                         good-idx)))))))))
+             (map 
+              (lambda (col)
+                (inexact->exact
+                 (round (* 1000 (string->number/0 (col-ref/g col course))))))
+              '(team-teaching-frac
+                scu
+                faculty-contact-hours
+                direct-wtu))
+             (list newclass
+                   (inexact->exact
+                    (round (* 1000 newdwtus)))
+                   (list-ref (col-ref/g 'facility-type course)
+                             good-idx)))))))))
 
 #;(define (export-offerseqs)
-  (export-data "/tmp/offerseqs.txt" all-offerseqs))
+    (export-data "/tmp/offerseqs.tsv" all-offerseqs))
 
 
 #;(export-groupings-relation)
-#;(export-offerseqs))
+#;(export-offerseqs)
 

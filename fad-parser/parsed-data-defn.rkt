@@ -23,14 +23,14 @@
                 [offerings : (Listof Offering)]
                 [faculty-offerings : (Listof FacultyOffering)]
                 [sequences : (Listof OfferingSequence)])
-  #:prefab)
+  )
 
 ;; represents a department's name, summary info, and instructors
 ;;(make-dept string (listof (list string assoc-list)) (listof instructor))
 (struct Dept ([name : String]
               [summary : (Listof (List String (Listof String)))]
               [instructors : (Listof Instructor)])
-  #:prefab)
+  )
 
 
 #|TEMP DELETE
@@ -65,7 +65,8 @@
                     (summary : AssocLine)
                     (specials : (Listof Special))
                     [home? : Boolean])
-  #:prefab)
+  
+  )
 
 ;; an offering is a group of students signed up for a class.
 (struct Offering
@@ -78,7 +79,7 @@
    [classification : (U #f Natural)]
    [accu : Real]
    [groupcode : (U #f Natural)])
-  #:prefab)
+ )
 
 (define-type Level (U "LD" "UD" "GD"))
 
@@ -91,7 +92,7 @@
    [scu : Real]
    [contact-hours : Real]
    [dwtu : Real])
-  #:prefab)
+  #:transparent)
 
 ;; an offerseq describes the information associated specifically with a
 ;; single sequence
@@ -109,7 +110,7 @@
    [space : String]
    [facility-type : String]
    [team-teach-frac : Nonnegative-Real])
-  #:prefab)
+  #:transparent)
 
 ;; represents a special assignment (such as course planning or
 ;; development)
@@ -118,8 +119,7 @@
    [scu : Nonnegative-Real]
    [contact-hours : Nonnegative-Real]
    [direct-wtu : Nonnegative-Real]
-   [indirect-wtu : Nonnegative-Real])
-  #:prefab)
+   [indirect-wtu : Nonnegative-Real]))
 
 ;; represents a line that associates labels with strings
 ;; this is our representation of an arbitrary line taken
