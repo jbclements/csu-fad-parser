@@ -9,7 +9,8 @@
                "plot-gui-lib"
                "plot-lib"
                "typed-racket-lib"
-               "csse-scheduling"))
+               "csse-scheduling"
+               "csv-writing"))
 (define build-deps '("rackunit-lib"
                      "wxme-lib"
                      "typed-racket-more"))
