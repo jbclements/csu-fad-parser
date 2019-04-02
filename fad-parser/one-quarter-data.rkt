@@ -18,7 +18,7 @@
 (provide qtr->parsed
          qtrs-available)
 
-(define FAD-DIRECTORY (build-path "/Users/clements/clements/datasets/FAD"))
+(define FAD-DIRECTORY (build-path "/Users/clements/onedrive/datasets/FAD"))
 
 ;; return a list of all the quarters for which we have
 ;; FAD reports

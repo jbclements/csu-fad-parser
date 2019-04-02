@@ -30,7 +30,9 @@
            [(list (list 'user db-user) (list 'password db-passwd))
             (values db-user db-passwd)])]
         [else
-         (values "fad-user" "abc123")]))
+         (error 'db-user-passwd
+                "db credentials file not found: ~e"
+                local-db-info-file)]))
 ;; the database to connect to
 (define DATABASE "fad")
 

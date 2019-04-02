@@ -1,8 +1,10 @@
 #lang racket
 
-;; instructor data needs to be merged, not just added.
-;; this file does that.
-
+;; this file updates the database with information from
+;; new FAD reports. Generally speaking, after receiving
+;; a new FAD, you have to run functions from this file
+;; to generate .tsv files, then upload them and use
+;; \COPY to add them.
 
 (require "pages-to-parsed-tr.rkt"
          "one-quarter-data.rkt"
@@ -13,7 +15,7 @@
 
 
 
-(define qtr-nums '(2188))
+(define qtr-nums '(2192))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
@@ -70,6 +72,7 @@ new-instructors
      "INSERT INTO instructors VALUES ($1,$2,$3);"
      i)))
 
+;; RUN ME
 (define (export-instructors)
   (export-data "/tmp/instructors.tsv" new-instructors))
 
@@ -112,7 +115,7 @@ new-instructors
            (Instructor-adm-level instr)
            (normalize-rank (Instructor-rank instr)))))))))
 
-
+;; RUN ME
 (define (export-instructor-statuses)
   (export-data  "/tmp/instructorstatuses.tsv" all-instructor-statuses))
 
@@ -210,7 +213,7 @@ new-instructors
              (real-as-int (Offering-accu o))
              (val-or-null (Offering-groupcode o)))))))
 
-
+;; RUN ME
 (define (export-offerings)
   (export-data "/tmp/offerings.tsv" all-offerings))
 
@@ -229,6 +232,7 @@ new-instructors
              (real-as-int (FacultyOffering-contact-hours o))
              (real-as-int (FacultyOffering-dwtu o)))))))
 
+;; RUN ME
 (define (export-offerfacs)
   (export-data "/tmp/offerfacs.tsv" all-offerfacs))
 
