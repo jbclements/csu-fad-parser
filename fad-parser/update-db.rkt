@@ -6,6 +6,12 @@
 ;; to generate .tsv files, then upload them and use
 ;; \COPY to add them.
 
+;; 1) update the qtr-nums, below
+;; 2) run
+;; 3) by hand, run all the functions labeled RUN ME, below.
+;; 4) schlep the resulting .tsv files over to desmond
+;; 5) use \COPY tablename FROM 'tablename.tsv'
+
 (require "pages-to-parsed-tr.rkt"
          "one-quarter-data.rkt"
          "make-connection.rkt"
@@ -15,7 +21,7 @@
 
 
 
-(define qtr-nums '(2194))
+(define qtr-nums '(2198))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
