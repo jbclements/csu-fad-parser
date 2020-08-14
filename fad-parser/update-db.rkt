@@ -21,13 +21,14 @@
 
 
 
-(define qtr-nums '(2202))
+(define qtr-nums '(2204))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
 (define (export-data filename records)
   (tsv-export filename records))
 
+(printf "if you don't have a tunnel open, this may fail...\n")
 (define conn (make-connection))
 
 (define existing-instructors
@@ -68,10 +69,11 @@
   (remove* existing-instructors all-instructors))
 
 
+"new instructors:"
 new-instructors
 
-;; oops... not enough privileges.
-(define (add-new-instructors!)
+;; unused
+#;(define (add-new-instructors!)
   (for/list ([i (in-list new-instructors)])
     (apply
      query-exec conn
@@ -126,10 +128,11 @@ new-instructors
   (export-data  "/tmp/instructorstatuses.tsv" all-instructor-statuses))
 
 
-;; don't think we're checking this any more.
+;; We're no longer tracking this; any course name is allowed.
 #;(define (export-course-names)
   (export-data "/tmp/courses.tsv" all-course-names))
 
+;; ditto
 #;(define all-subjects
   (remove-duplicates (map list (map first all-course-names))))
 

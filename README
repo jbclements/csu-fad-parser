@@ -47,3 +47,7 @@ This parser does not contain any actual FAD data; it just knows how to
 read and parse them.
 
 -- JBC, 2016-12-10
+
+Note for myself. Start by opening update-db.rkt, follow the instructions.
+
+-- JBC, 2020-08-05
