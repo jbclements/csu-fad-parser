@@ -7,10 +7,21 @@
 ;; \COPY to add them.
 
 ;; 1) update the qtr-nums, below
+;; 1.5) Delete .tsv files from /tmp
 ;; 2) run
 ;; 3) by hand, run all the functions labeled RUN ME, below.
+;;   here's what's there now:
+;; - (export-instructors)
+;; - (export-instructor-statuses)
+;; - (export-offerings)
+;; - (export-offerfacs)
 ;; 4) schlep the resulting .tsv files over to desmond
 ;; 5) use \COPY tablename FROM 'tablename.tsv'
+#;(for ([i (in-list '("instructors"
+                    "instructorstatuses"
+                    "offerings"
+                    "offerfacs"))])
+  (displayln (~a "\\COPY "i" FROM '/tmp/"i".tsv';")))
 
 (require "pages-to-parsed-tr.rkt"
          "one-quarter-data.rkt"
@@ -20,8 +31,9 @@
          db)
 
 
-
-(define qtr-nums '(2204))
+;; these are the quarters you're running on. Typically
+;; just a single quarter.
+(define qtr-nums '(2208))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
