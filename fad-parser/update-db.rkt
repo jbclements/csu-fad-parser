@@ -16,7 +16,9 @@
 ;; - (export-offerings)
 ;; - (export-offerfacs)
 ;; 4) schlep the resulting .tsv files over to desmond
-;; 5) use \COPY tablename FROM 'tablename.tsv'
+;; 5) back up using pg_dump fad > /tmp/fad.sql && mv /tmp/fad.sql ~
+;; 5) psql fad
+;; 6) use \COPY tablename FROM 'tablename.tsv'
 #;(for ([i (in-list '("instructors"
                     "instructorstatuses"
                     "offerings"
@@ -33,7 +35,7 @@
 
 ;; these are the quarters you're running on. Typically
 ;; just a single quarter.
-(define qtr-nums '(2208))
+(define qtr-nums '(2212))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
