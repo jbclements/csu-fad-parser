@@ -52,13 +52,41 @@
     (instructor-no-stars
      [(INSTRUCTOR-HDR OTHER-LINE other-lines INSTRUCTOR-COURSE-HDR other-lines INSTRUCTOR-TOTS-DIV OTHER-LINE)
       (list 'home-dept $2 $3 $5 $7)]
+     ;; this indicates the home record of an instructor with a split appointment.
      [(INSTRUCTOR-HDR OTHER-LINE other-lines
                       INSTRUCTOR-SPLIT-APPOINTMENT-NOTE-1
                       INSTRUCTOR-SPLIT-APPOINTMENT-NOTE-2
                       INSTRUCTOR-COURSE-HDR other-lines INSTRUCTOR-TOTS-DIV OTHER-LINE)
       (list 'home-dept $2 $3 $7 $9)]
+     ;; this indicates the non-home-record of an instructor with a split appointment.
      [(INSTRUCTOR-HDR OTHER-LINE other-lines INSTRUCTOR-SPLIT-APPOINTMENT-LINE INSTRUCTOR-TOTS-DIV OTHER-LINE)
       (list 'split-appt-remote $2 $3 $6)]
+     ;; the karen bangs exception; she's apparently split between IE and... IE. This
+     ;; generates some weird stuff.
+     ;; This should only occur when an instructor is split between a department and itself.
+     ;; Operator should ensure that these match up...?
+     ;; karen bangs 1: both notes, no courses:
+     [(INSTRUCTOR-HDR OTHER-LINE other-lines
+                      INSTRUCTOR-SPLIT-APPOINTMENT-NOTE-1
+                      INSTRUCTOR-SPLIT-APPOINTMENT-NOTE-2
+                      INSTRUCTOR-SPLIT-APPOINTMENT-LINE INSTRUCTOR-TOTS-DIV OTHER-LINE)
+      (begin
+        (fprintf (current-error-port)
+                 "warning: instructor with both kinds of split appointment, part 1:\n~e\n"
+                 $2)
+        (list 'split-appt-remote $2 $3 $8))]
+     ;; karen bangs 2: both notes, with courses:
+     [(INSTRUCTOR-HDR OTHER-LINE other-lines
+                      INSTRUCTOR-SPLIT-APPOINTMENT-NOTE-1
+                      INSTRUCTOR-SPLIT-APPOINTMENT-NOTE-2
+                      INSTRUCTOR-SPLIT-APPOINTMENT-LINE
+                      INSTRUCTOR-COURSE-HDR other-lines INSTRUCTOR-TOTS-DIV OTHER-LINE)
+      (begin
+        (fprintf (current-error-port)
+                 "warning: instructor with both kinds of split appointment, part 2:\n~e\n"
+                 $2)
+        (list 'home-dept $2 $3 $8 $10))]
+     
      [(INSTRUCTOR-HDR OTHER-LINE other-lines INSTRUCTOR-TOTS-DIV OTHER-LINE)
       (list 'no-class-instructor $2 $3 $5)])
     (other-lines [(OTHER-LINE other-lines) (cons $1 $2)]
