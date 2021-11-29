@@ -51,3 +51,34 @@ read and parse them.
 Note for myself. Start by opening update-db.rkt, follow the instructions.
 
 -- JBC, 2020-08-05
+
+Okay, I can do better than that.
+
+- Make sure you have the MS Word version of the FAD, not the PDF.
+- Use MS Word "Save As" to export as text. Choose "LF Only" as line
+  ending. I have no idea why it's so hard to get standard line endings
+  in MS word, I swear they're just trying to make life hard.
+  Note: why isn't the FAD just available as a text file? I have no idea.
+  Well, my assumption is that it *is* a text file, but some standard
+  pipeline converts it to MS Word and a pdf along the way. It turns out
+  that extracting text from a PDF is hard and unreliable, exporting
+  it from MS Word is much more reliable.
+- move resulting text file to (e.g.) ~/onedrive/datasets/FAD/fad-2218.txt
+- open ./fad-parser/update-db.rkt, follow instructions
+
+Also, note that installing this package currently triggers some compilation
+warnings; these don't appear to affect the operation of the package, it looks
+like they may be breakage that occurred during some refactoring:
+
+raco setup: error: during making for <pkgs>/csu-fad-parser/fad-parser/scripts
+raco setup:   csu-fad-parser/fad-parser/scripts/spreadsheet-tmp.rkt:16:21: Instructor-header: unbound identifier
+raco setup:     in: Instructor-header
+raco setup:     compiling: <pkgs>/csu-fad-parser/fad-parser/scripts/spreadsheet-tmp.rkt
+raco setup: error: during making for <pkgs>/csu-fad-parser/fad-parser
+raco setup:   csu-fad-parser/fad-parser/export-to-spreadsheet.rkt:168:24: Faculty-Offering-subject: unbound identifier
+raco setup:     in: Faculty-Offering-subject
+raco setup:     compiling: <pkgs>/csu-fad-parser/fad-parser/export-to-spreadsheet.rkt
+
+
+
+-- JBC, 2021-11-29

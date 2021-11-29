@@ -9,6 +9,7 @@
 ;; 1) update the qtr-nums, below
 ;; 1.5) Delete .tsv files from /tmp
 ;; 2) run
+;; 2.5) Add new fad names in our depts to instructor-name-mapping
 ;; 3) by hand, run all the functions labeled RUN ME, below.
 ;;   here's what's there now:
 ;; - (export-instructors)
@@ -18,7 +19,7 @@
 ;; 4) schlep the resulting .tsv files over to johnlewis
 ;; 5) back up using pg_dump fad > /tmp/fad.sql && mv /tmp/fad.sql ~
 ;; 5) psql fad
-;; 6) use \COPY tablename FROM 'tablename.tsv':
+;; 6) copy tsvs into database:
 ; \COPY instructors FROM '/tmp/instructors.tsv';
 ; \COPY instructorstatuses FROM '/tmp/instructorstatuses.tsv';
 ; \COPY offerings FROM '/tmp/offerings.tsv';
@@ -40,7 +41,7 @@
 
 ;; these are the quarters you're running on. Typically
 ;; just a single quarter.
-(define qtr-nums '(2214))
+(define qtr-nums '(2218))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
@@ -48,6 +49,7 @@
   (tsv-export filename records))
 
 (printf "if you don't have a tunnel open, this may fail...\n")
+(flush-output)
 (define conn (make-connection))
 
 (define existing-instructors
