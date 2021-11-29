@@ -132,9 +132,10 @@
 ;; new style. Replace old style?
 (define-type SplitInfo2 (Listof SplitInfoField2))
 (define-type SplitInfoField2
-  (List Natural
-        FieldFmt
-        Symbol))
+  (List Natural ;; the first column of the new field
+        FieldFmt ;; the format of the field
+        Symbol ;; the name of the field
+        Boolean)) ;; whether this column must be a space
 
 (define-type FieldFmt (U 'id 'alpha 'alphanum 'alphanum= 'nums
                          'course-num 'course-id
@@ -191,16 +192,19 @@
 ;; return an association list of the form (Listof (List Symbol String))
 ;; ...I'd like to replace string-split-cols with string-split-cols-2
 ;; everywhere.
-(: string-split-cols-2 (SplitInfo2 String
-                                 -> (Listof (List Symbol String))))
-(define (string-split-cols-2 split-info str)
+(define (string-split-cols-2 [split-info : SplitInfo2] [str : String])
+  : (Listof (List Symbol String))
   (define len (string-length str))
   (define full-cols-list
     (append
      (map (inst first Natural Any)
           split-info)
      (list (string-length str))))
+  (define must-be-spaces-list
+    (map (ann fourth (SplitInfoField2 -> Boolean))
+         split-info))
   (for/list ([start full-cols-list]
+             [must-be-space? must-be-spaces-list]
              [stop (rest full-cols-list)]
              [pat-sym : FieldFmt
                       (map (ann second (SplitInfoField2 -> FieldFmt))
@@ -208,7 +212,9 @@
              [field-name (map (ann third (SplitInfoField2 -> Symbol))
                               split-info)])
     ;; the dividing column should be blank:
-    (when (and (< start (string-length str)) (not (equal? #\space (string-ref str start))))
+    (when (and (< start (string-length str))
+               must-be-space?
+               (not (equal? #\space (string-ref str start))))
       (error 'string-split-cols-2
              "expected to find a space in column ~v, pre-char-post: ~v"
              start
@@ -277,9 +283,14 @@
 ;; are directly copied from the FAD (ooh except for the bracketed
 ;; text I inserted for columns that have no header in the original)
 ;; (ooh and other doctoring to split department and number...)
+
+;; okay, sigh, in 2218 it looks like they want six-character "SPACE"s, so
+;; there's no space in column 78. I don't want to throw out the space check
+;; altogether, so let's introduce a new character, "N", for a break column that
+;; may not be a space.
 (define 2174-class-template
 #<<|
-      X    X      X     X   X   X   X  X     X     X    X    X    X     X     X    X   X      X      X     X      X      X      
+      X    X      X     X   X   X   X  X     X     X    X    X    X     X      N   X   X      X      X     X      X      X      
   SUBJ NUM    SECT HEGIS LVL ENR  LS CS A-CCU DAYS  BEG  END   TBA  FACL SPACE TYPE GRP   TTF    SCU    FCH  D-WTU  I-WTU  T-WTU
   AERO 0300    05  09021 UD   27  10 16  1.0  W     1510 1800  0.0  192  0321  LAB       1.000   27.0   2.8    2.0
   AERO 0307    02  09021 UD   18  10 16  2.0  TTH   1210 1500  0.0  041  0136  LAB       1.000   36.0   5.8    4.0
@@ -357,6 +368,7 @@
 |
   )
 
+;; this maps the name of a column in the instructor header to a format and a column name
 (define instructor-header-to-field-info-map : (Listof (List String Symbol Symbol))
   '(("SSN" id id) ;; 'id is a TERRIBLE name for this. they can collide!
     ("NAME" alpha name)
@@ -382,6 +394,7 @@
 |
   )
 
+;; this maps the name of a column in the instructor summary header to a format and a column name
 (define instructor-summary-header-to-field-info-map : (Listof (List String Symbol Symbol))
   '(("TITLE" alpha total-individual)
     ("ENR" nums enrolled)
@@ -415,17 +428,25 @@
          [class-header-to-field-info-map : (Listof (List String Symbol Symbol))]) : SplitInfo2
   (define template-lines (regexp-split #px"\n" template-text))
   (define x-line (first template-lines))
+  ;; quick sanity check
+  (unless (subset? (remove-duplicates (string->list x-line))
+                   (list #\space #\X #\N))
+    (error 'template->split-info
+           "unexpected characters in x-line: ~e"
+           (remove-duplicates (string->list x-line))))
   (define header-row (second template-lines))
-  (define x-columns
+  (define split-columns
     (for/list : (Listof Natural)
       ([posn : Natural (in-naturals)]
        [char (in-string x-line)]
-       #:when (equal? char #\X))
+       #:when (or (equal? char #\X)
+                  (equal? char #\N)))
       posn))
   (define col-headers
     (for/list : (Listof String)
-      ([start-posn (in-list (cons 0 x-columns))]
-       [end-posn (in-list (append x-columns (list (string-length header-row))))])
+      ([start-posn (in-list (cons 0 split-columns))]
+       [end-posn (in-list (append split-columns
+                                  (list (string-length header-row))))])
       (string-trim (substring header-row start-posn end-posn))))
 
   (unless (equal? (list->set (map (inst first String Any)
@@ -436,17 +457,25 @@
            (map (inst first String Any)
                 class-header-to-field-info-map)
            col-headers))
-  (for/list : (Listof (List Natural FieldFmt Symbol))
+  (for/list : (Listof (List Natural FieldFmt Symbol Boolean))
     ([col-header (in-list col-headers)]
-     [start-posn (in-list (cons 0 x-columns))])
+     [start-posn (in-list (cons 0 split-columns))])
     (define field-info (match (assoc col-header class-header-to-field-info-map)
                          [#f (error 'header-map "impossible 2017-07")]
                          [other other]))
+    (define must-be-space?
+      (cond
+        [(equal? start-posn 0) #t]
+        [else
+         (match (string-ref x-line start-posn)
+           [#\X #t]
+           [#\N #f])]))
     (ann
      (list start-posn
            (cast (second field-info) FieldFmt)
-           (third field-info))
-     (List Natural FieldFmt Symbol))))
+           (third field-info)
+           must-be-space?)
+     (List Natural FieldFmt Symbol Boolean))))
 
 (define 2174-course-splitinfo : SplitInfo2
   (template->split-info 2174-class-template
@@ -476,6 +505,51 @@
 
   (require typed/rackunit)
 
+  (check-equal?
+   (string-split-cols-2 2174-course-splitinfo
+                        "  MATE 0359    01  09151 UD   \
+25  10 04  4.0  TTH   0910 1100  0.0  186  C100  LECT  \
+    1.000  100.0   3.8    4.0")
+   '((subject "MATE") (course-num "0359") (section "01")
+                      (discipline "09151") (level "UD") (enrollment "25")
+                      (sequence "10") (classification "04") (a-ccu "4.0")
+                      (days "TTH") (time-start "0910") (time-stop "1100")
+                      (tba-hours "0.0") (facility "186") (space "C100")
+                      (facility-type "LECT") (group-code "")
+                      (team-teaching-frac "1.000")
+                      (scu "100.0") (faculty-contact-hours "3.8")
+                      (direct-wtu "4.0") (indirect-wtu "") (total-wtu "")))
+  (check-equal?
+   (string-split-cols-2
+    2174-course-splitinfo
+    "  CHEM 0110    21  19051 LD   40  10 01  3.0  TTH  \
+ 1510 1630  0.0  180  0334S0LECT      1.000  120.0   2.8\
+    3.0")
+   '((subject "CHEM")
+     (course-num "0110")
+     (section "21")
+     (discipline "19051")
+     (level "LD")
+     (enrollment "40")
+     (sequence "10")
+     (classification "01")
+     (a-ccu "3.0")
+     (days "TTH")
+     (time-start "1510")
+     (time-stop "1630")
+     (tba-hours "0.0")
+     (facility "180")
+     (space "0334S0")
+     (facility-type "LECT")
+     (group-code "")
+     (team-teaching-frac "1.000")
+     (scu "120.0")
+     (faculty-contact-hours "2.8")
+     (direct-wtu "3.0")
+     (indirect-wtu "")
+     (total-wtu "")))
+
+  
   (check-equal?
    (string-split-cols
     instructor-summary-split-info
