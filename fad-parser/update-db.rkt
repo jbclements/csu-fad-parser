@@ -41,7 +41,7 @@
 
 ;; these are the quarters you're running on. Typically
 ;; just a single quarter.
-(define qtr-nums '(2218))
+(define qtr-nums '(2222))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
