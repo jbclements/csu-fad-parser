@@ -9,7 +9,8 @@
 ;; 1) update the qtr-nums, below
 ;; 1.5) Delete .tsv files from /tmp
 ;; 2) run
-;; 2.5) Add new fad names in our depts to instructor-name-mapping
+;; 2.5) Use fad-name-add! from instructor-name-ids.rkt, but only for
+;;      instructors in our departments
 ;; 3) by hand, run all the functions labeled RUN ME, below.
 ;;   here's what's there now:
 ;; - (export-instructors)
@@ -41,7 +42,7 @@
 
 ;; these are the quarters you're running on. Typically
 ;; just a single quarter.
-(define qtr-nums '(2222))
+(define qtr-nums '(2224))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
