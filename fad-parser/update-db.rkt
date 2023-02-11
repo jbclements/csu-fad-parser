@@ -21,10 +21,13 @@
 ;; 5) back up using pg_dump fad > /tmp/fad.sql && mv /tmp/fad.sql ~
 ;; 5) psql fad
 ;; 6) copy tsvs into database:
-; \COPY instructors FROM '/tmp/instructors.tsv';
-; \COPY instructorstatuses FROM '/tmp/instructorstatuses.tsv';
-; \COPY offerings FROM '/tmp/offerings.tsv';
-; \COPY offerfacs FROM '/tmp/offerfacs.tsv';
+#|
+\COPY instructors FROM '/tmp/instructors.tsv';
+\COPY instructorstatuses FROM '/tmp/instructorstatuses.tsv';
+\COPY offerings FROM '/tmp/offerings.tsv';
+\COPY offerfacs FROM '/tmp/offerfacs.tsv';
+
+|#
  
 #;(for ([i (in-list '("instructors"
                     "instructorstatuses"
@@ -42,7 +45,7 @@
 
 ;; these are the quarters you're running on. Typically
 ;; just a single quarter.
-(define qtr-nums '(2224))
+(define qtr-nums '(2228))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
