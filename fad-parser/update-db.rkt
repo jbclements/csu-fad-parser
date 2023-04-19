@@ -35,17 +35,17 @@
                     "offerfacs"))])
   (displayln (~a "\\COPY "i" FROM '/tmp/"i".tsv';")))
 
-(require "pages-to-parsed-tr.rkt"
-         "one-quarter-data.rkt"
+(require "one-quarter-data.rkt"
          "make-connection.rkt"
          "tsv-export.rkt"
          "parsed-data-defn.rkt"
+         json
          db)
 
 
 ;; these are the quarters you're running on. Typically
 ;; just a single quarter.
-(define qtr-nums '(2228))
+(define qtr-nums (qtrs-available) #;'(2228))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
@@ -269,6 +269,36 @@ new-instructors
 ;; RUN ME
 (define (export-offerfacs)
   (export-data "/tmp/offerfacs.tsv" all-offerfacs))
+
+
+(define (export-summaries)
+  ;; given a list of (List String (Listof String)), return a hash
+  (define (lolos->hash lols)
+    (for/list ([line (in-list lols)])
+      (match-define (list title nums) line)
+      (hash 'line-title title
+            'num-strs nums)))
+  (define all-hashes
+    (for/list ([qtr-num (in-list qtr-nums)]
+               [parsed (in-list parsed-qtrs)])
+      (match parsed
+        [(Parsed college-summary depts _ _ _)
+         (make-immutable-hash
+          (list (cons 'qtr qtr-num)
+                (cons 'college-summary
+                      (match college-summary
+                        ['no-college-summary-page
+                         "no college summary page this qtr"]
+                        [else (lolos->hash (Parsed-college-summary parsed))]))
+                (cons 'dept-summaries
+                      (map (λ (dept)
+                             (hash 'dept (Dept-name dept)
+                                   'dept-summary
+                                   (lolos->hash (Dept-summary dept))))
+                           (Parsed-depts parsed)))))])))
+  (call-with-output-file "/tmp/summaries.json"
+    (λ (port)
+      (write-json all-hashes port))))
 
 
 #;(define (corrected course)
