@@ -53,7 +53,9 @@
 ;; file->fad-pages : path-string format-symbol -> fad-pages
 (define (file->fad-pages filename format)
   (display (~a "parsing file: "filename"\n"))
-  (define result (pages->fad-pages (file->pages filename format)))
+  (define the-pages (file->pages filename format))
+  (printf "read ~v file pages\n" (length the-pages))
+  (define result (pages->fad-pages the-pages))
   (display (~a "found "
                (length (fad-pages-depts result))
                " departments.\n"))
@@ -462,10 +464,14 @@ A-CCU DAYS  BEG  END   TBA  FACL SPACE/TYPE GRP   TTF \
    [end EOF]
    [error (lambda (tok-ok? tok-name tok-value start end)
             (error 'dept-page-parser 
-                   (~a "tok-ok?:"tok-ok?"\ntok-name: "
-                       tok-name"\ntok-value: "(~s tok-value)
-                       " start-pos, line: "(position-line start)
-                       ", column: "(position-col start)"\n")))]
+                   (~a "parse failure. tok-ok?:"tok-ok?" tok-name: "
+                       tok-name" tok-value: "(~s tok-value)
+                       " start-pos: "
+                       (cond [start
+                              (format "line ~v, col ~v"
+                                      (position-line start)
+                                      (position-col start))]
+                             [else start]))))]
    [start pages]))
 
 ;; string -> (listof page)
