@@ -159,7 +159,9 @@
 
 (: file->parsed (Path-String Format -> Parsed))
 (define (file->parsed file fformat)
-  (parse-pages (file->fad-pages file fformat) fformat))
+  (define fad-pages (file->fad-pages file fformat))
+  (printf "file->fad-pages complete\n")
+  (parse-pages fad-pages fformat))
 
 ;; transform a fad-pages into a fad-parsed
 (: parse-pages (fad-pages Format -> Parsed))
