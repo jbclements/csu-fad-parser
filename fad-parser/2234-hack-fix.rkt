@@ -4,11 +4,36 @@
 ;; I'm hoping that's the only thing that's wrong with it. This is the code I used
 ;; to check and fix that. We'll see how 2238 looks.
 
+;; yep... 2238 is broken in the same way, sigh.
+
+;; oog, page header problem at the bottom, too... it's just getting cut 3 lines low everywhere.
+
 ;; gee whiz... weird surgery required at the beginning of the summaries... looks like someone
 ;; is cutting the pages at the wrong points.
 
+(define qtr 2238)
+
+;; copy from the following page, subtract one from page number, un-double-space... ugh
+  (define prefix
+#<<PRE
+1
+ NOVEMBER 22, 2023                   CHANCELLOR'S OFFICE OF CALIFORNIA STATE UNIVERSITIES                    PAGE                 208
+ JOB APD55   PGM APD60           FACULTY ASSIGNMENTS BY DEPARTMENT FOR FALL   2023 SAN LUIS OBISPO   
+ 
+PRE
+#|
+#<<PRE
+1
+ JUNE 5, 2023                        CHANCELLOR'S OFFICE OF CALIFORNIA STATE UNIVERSITIES                    PAGE                 200
+ JOB APD55   PGM APD60           FACULTY ASSIGNMENTS BY DEPARTMENT FOR SPRING 2023 SAN LUIS OBISPO   
+
+PRE
+
+|#    
+)
+
 (define (go)
-  (define s (file->string "/tmp/fad-2234.txt"))
+  (define s (file->string (build-path "/tmp/" (~a "fad-" qtr ".txt"))))
 
   (define starts-with-lonely-newline?
     (regexp-match #px"^\n[^\n]" s))
@@ -26,13 +51,8 @@
 
   (define un-doubled (regexp-replace* #px"\n\n" after-first-char "\n"))
 
-  (define prefix
-    "1
- JUNE 5, 2023                        CHANCELLOR'S OFFICE OF CALIFORNIA STATE UNIVERSITIES                    PAGE                 200
- JOB APD55   PGM APD60           FACULTY ASSIGNMENTS BY DEPARTMENT FOR SPRING 2023 SAN LUIS OBISPO   
 
-")
 
   (display-to-file
    (string-append prefix un-doubled)
-   "/tmp/fad-2234-amended.txt"))
+   (build-path "/tmp/" (~a "fad-" qtr "-amended.txt"))))
