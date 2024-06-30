@@ -19,7 +19,7 @@
 (define (tsv-export [filename : Path-String]
                     [records : (Listof (Listof DbVal))])
   (call-with-output-file filename
-    (lambda (port)
+    (lambda ([port : Output-Port])
       (display-table records port #:printing-params postgres-printing-params))
     #:exists 'truncate))
 
