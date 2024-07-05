@@ -9,20 +9,9 @@
 
 (require "divide-columns.rkt"
          "check-primary-keys.rkt"
-         "parsed-data-defn.rkt")
+         "parsed-data-defn.rkt"
+         "some-structs.rkt")
 
-(require/typed "fad-to-pages.rkt"
-               [#:struct dept-pages
-                ([name : String]
-                 [summary : (Listof (List String
-                                          (Listof String)))]
-                 [detail : (Listof Any)])]
-               [#:struct fad-pages ([college-summary
-                                     : (U (Listof (List String
-                                                        (Listof String)))
-                                          'no-college-summary-page)]
-                                    [depts : (Listof dept-pages)])]
-               [file->fad-pages (Path-String Format -> fad-pages)])
 
 (require/typed "parse-dept-lines.rkt"
                [pre-2144-dept-lines-parser
@@ -37,7 +26,6 @@
 
 
 (provide (struct-out InstructorLines)
-         file->parsed
          parse-pages
          instructor-courses
          col-ref
@@ -155,13 +143,6 @@
 |#
 
 
-
-
-(: file->parsed (Path-String Format -> Parsed))
-(define (file->parsed file fformat)
-  (define fad-pages (file->fad-pages file fformat))
-  (printf "file->fad-pages complete\n")
-  (parse-pages fad-pages fformat))
 
 ;; transform a fad-pages into a fad-parsed
 (: parse-pages (fad-pages Format -> Parsed))

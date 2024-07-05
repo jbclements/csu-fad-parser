@@ -6,7 +6,12 @@
 
 (require "parsed-data-defn.rkt"
          "pages-to-parsed-tr.rkt"
+         "some-structs.rkt"
+         threading
          (only-in "divide-columns.rkt" Format))
+
+(require/typed "fad-to-pages.rkt"
+               [file->fad-pages (Path-String Format -> fad-pages)])
 
 ;; given a quarter number such as 2178, return a Parsed
 ;; representing the FAD data
@@ -23,15 +28,17 @@
 ;; return a list of all the quarters for which we have
 ;; FAD reports
 (define (qtrs-available) : (Listof Natural)
-  (for/list ([f (in-directory FAD-DIRECTORY)]
-             #:when (and (file-exists? f)
-                         (regexp-match fad-filename-pattern
-                                       (filename-only f))))
-    (match (filename-only f)
-      [(regexp fad-filename-pattern (list _ qtr-str))
-       ;; pattern guarantees this assert should succeed
-       (assert (string->number (assert qtr-str string?))
-               exact-nonnegative-integer?)])))
+  (remove-duplicates
+   (for/list : (Listof Natural)
+     ([f (in-directory FAD-DIRECTORY)]
+      #:when (and (file-exists? f)
+                  (regexp-match fad-filename-pattern
+                                (filename-only f))))
+     (match (filename-only f)
+       [(regexp fad-filename-pattern (list _ qtr-str amended?))
+        ;; pattern guarantees this assert should succeed
+        (assert (string->number (assert qtr-str string?))
+                exact-nonnegative-integer?)]))))
 
 ;; return the final filename portion of a filename, ensuring it's a string
 (define (filename-only [f : Path-String]) : String
@@ -47,7 +54,7 @@
                 [else (path->string final)])]))
 
 ;; the pattern that fad filenames have:
-(define fad-filename-pattern #px"^fad-([0-9]+)\\.txt$")
+(define fad-filename-pattern #px"^fad-([0-9]+)(-amended)?\\.txt$")
 
 ;; let's find bugs in this file:
 #;(define d
@@ -62,7 +69,18 @@
         [else '2174-fmt]))
 
 (define (qtr->filename [qtr : Natural]) : Path
-  (build-path FAD-DIRECTORY (~a "fad-"qtr".txt")))
+  (define p1 (build-path FAD-DIRECTORY (~a "fad-"qtr"-amended.txt")))
+  (define regular-path (build-path FAD-DIRECTORY (~a "fad-"qtr".txt")))
+  (cond [(file-exists? p1) p1]
+        [else regular-path]))
+
+
+;; given a filename and a format, return a Parsed
+(: file->parsed (Path-String Format -> Parsed))
+(define (file->parsed file fformat)
+  (~> file
+      (file->fad-pages fformat)
+      (parse-pages fformat)))
 
 (define (qtr->parsed [qtr : Natural]) : Parsed
   (file->parsed (qtr->filename qtr) (qtr->fformat qtr)))

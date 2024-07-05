@@ -13,6 +13,7 @@
          parser-tools/yacc
          racket/generator
          "trim-leading-spaces.rkt"
+         "some-structs.rkt"
          (only-in "divide-columns.rkt" format?))
 
 (provide (struct-out fad-pages)
@@ -30,22 +31,13 @@
          eof-group
          token-EOF
          summary-row?
-         file->tokens)
+         file->tokens
+
+         page-header-2-regexp
+         page-assignments-sub-header-regexp)
 
 
-;; a fad-pages contains an assoc-list and (listof dept-pages)
-(struct fad-pages (college-summary depts) #:prefab)
 
-;; a dept-pages is (dept-pages string assoc-list (listof page))
-;; a dept-pages contains a string, a summary, and a list of line-tokens 
-(struct dept-pages (name summary detail) #:prefab)
-
-;; a page has a date, two numbers, some labels, a department, and some lines.
-(define-struct page (date page-a page-b labels dept lines) #:prefab)
-;; depending on the header, they're either ASSIGNMENTS ...
-(define-struct (assignments-page page) ())
-;; ... or SUMMARY pages.
-(define-struct (summary-page page) ())
 
 (define summary-row? (list/c string? (listof string?)))
 
@@ -755,5 +747,5 @@ OF CALIFORNIA STATE UNIVERSITIES")
 
 
 ;; try it out:
-;;(define a (file->fad-pages "fad-2008-fall.txt"))
+;(define a (file->fad-pages "/tmp/fad-2232.txt" '2174-fmt))
 
