@@ -209,6 +209,20 @@
 (define (line-labels [line : AssocLine]) : (Setof Symbol)
   (list->set (map (inst first Symbol Any) line)))
 
+;; ridiculous hack for section numbers
+(define (section-num-hack [s : String]) : String
+  (cond [(equal? s "1A") "100"]
+        [else s]))
+
+;; string->number for nats, provide useful errors
+(define (string->number/nat/err [s : String]) : Natural
+  (cond [(regexp-match #px"^\\d+$" s)
+         (assert (string->number s) nat?)]
+        [else
+         (error 'string->number/nat/err
+                "expected string representing natural number, got ~e"
+                s)]))
+
 
 ;; given a list of fully qualified lines representing an section, return an offering
 (: section-lines->offering (Format -> (Listof AssocLine) -> Offering))
@@ -223,17 +237,17 @@
                      (raise exn))])
     (Offering (allthesame lines 'subject)
               (allthesame lines 'course-num)
-              (assert (string->number (allthesame lines 'section)) nat?)
-              (assert (string->number (assert (atmostone lines 'discipline) string?)) nat?)
+              (string->number/nat/err (section-num-hack (allthesame lines 'section)))
+              (string->number/nat/err (assert (atmostone lines 'discipline) string?))
               (normalize-level (assert (atmostone lines 'level) string?))
-              (assert (string->number (assert (atmostone lines 'enrollment) string?)) nat?)
+              (string->number/nat/err (assert (atmostone lines 'enrollment) string?))
               (collapse-classification lines)
               (case fformat
                 [(pre-2144) (sum-by-instructor/allthesame lines 'a-ccu)]
                 [(post-2142 post-2164 2174-fmt) (sum-of-nums lines 'a-ccu)])
               (match (atmostone lines 'group-code)
                 [#f #f]
-                [(? string? s) (assert (string->number s) nat?)]))))
+                [(? string? s) (string->number/nat/err s)]))))
 
 ;; given the 
 (: section-lines->faculty-offerings ((Listof AssocLine) -> (Listof FacultyOffering)))
@@ -253,7 +267,7 @@
   (define course-num (allthesame lines 'course-num))
   (FacultyOffering subject
                    course-num
-                   (assert (string->number (allthesame lines 'section)) nat?)
+                   (string->number/nat/err (section-num-hack (allthesame lines 'section)))
                    (allthesame lines 'instructor)
                    (sum-of-nums lines 'scu)                   
                    (sum-of-nums lines 'faculty-contact-hours)
@@ -270,7 +284,7 @@
                           "empty string for 'total-wtu"
                           line))
   (define section
-    (match (string->number (col-ref 'section line))
+    (match (string->number (section-num-hack (col-ref 'section line)))
       [(? nat? n) n]
       [other (raise-argument-error 'line->sequence
                                    "section field containing number"
@@ -279,9 +293,9 @@
   (define sequence
     (match (col-ref 'sequence line)
       [(regexp #px"\\*([0-9]+)" (list _ numstr))
-       (assert (string->number (substring (assert numstr string?) 1)) nat?)]
+       (string->number/nat/err (substring (assert numstr string?) 1))]
       [(regexp #px"[0-9]+" (list numstr))
-       (assert (string->number numstr) nat?)]
+       (string->number/nat/err numstr)]
       [other  (raise-argument-error 'line->sequence
                                     "sequence field containing number"
                                     line)]))
@@ -353,7 +367,7 @@
                                       vals))
   (match (remove-duplicates nonblanknonzerovals)
     [(list) #f]
-    [(list v) (assert (string->number v) nat?)]
+    [(list v) (string->number/nat/err v)]
     [other (raise-argument-error 'collapse-classifications
                                  "at most one nonzero nonblank value for classification"
                                  0 lines)]))
@@ -688,10 +702,13 @@
         [else (assert (string->number str)
                       nonnegative-real?)]))
 
+;; take a name such as "112 AERO ENG", split into
+;; num and name, check that the num matches the name in the
+;; dept-number-mapping, then return the name
 (: dept-check-name (String -> String))
 (define (dept-check-name n)
   (match n
-    [(regexp #px"(\\d+) (.*)" (list _ num name))
+    [(regexp #px"(\\d+) (.+)" (list _ num name))
      ;; check that the number and the name match as expected
      (define lookup-names (assoc
                            (assert (string->number (assert num string?))
@@ -702,6 +719,7 @@
        (error 'dept-check-name
               "unexpected number/deptname pairing: ~e"
               n))
+     ;; assertion must succeed by pattern
      (assert name string?)]
     [other
      (raise-argument-error 'dept-check-name "department name matching pattern" 0 n)]))
@@ -729,15 +747,12 @@
   (match s
     [(regexp #px"SPLIT APPT ([ 0-9]+)" (list _ depts))
      (define nums
-       ;; cast success guaranteed by regexp
-       (cast 
-        (map string->number
-             (regexp-split
-              #px" +"
-              (string-trim
-               ; success guaranteed by regexp
-               (assert depts string?))))
-        (Listof Natural)))
+       (map string->number/nat/err
+            (regexp-split
+             #px" +"
+             (string-trim
+              ; success guaranteed by regexp
+              (assert depts string?)))))
      (map maybe-deptname nums)]
     ["" '()]))
 
@@ -794,7 +809,8 @@
   (require typed/rackunit)
 
   (check-equal? (dept-check-name "112 AERO ENG")
-                "AERO")
+                "AERO ENG")
 
- )
+  (check-exn #px"number/deptname pairing"
+             (λ () (dept-check-name "113 AERO ENG"))))
 
