@@ -264,13 +264,14 @@
          (map (flatten-special qtr (Dept-name dept) (Instructor-name instructor))
               (Instructor-specials instructor))))))))
 
-(define rows (apply append (map qtr->csv-rows qtrs)))
+(define (go)
+  (define rows (apply append (map qtr->csv-rows qtrs)))
 
-(call-with-output-file "/tmp/zz.csv"
-  #:exists 'truncate
-  (λ ([port : Output-Port])
-    (for ([line (in-list (cons header-row rows))])
-      (displayln (csv-row->string line) port))))
+  (call-with-output-file "/tmp/zz.csv"
+    #:exists 'truncate
+    (λ ([port : Output-Port])
+      (for ([line (in-list (cons header-row rows))])
+        (displayln (csv-row->string line) port)))))
 
 
 ;; we're combining a bunch of different kinds of records
