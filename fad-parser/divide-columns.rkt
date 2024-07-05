@@ -139,6 +139,7 @@
 
 (define-type FieldFmt (U 'id 'alpha 'alphanum 'alphanum= 'nums
                          'course-num 'course-id
+                         'section-num
                          'seq-num 'decimal))
 
 (: pat (FieldFmt -> Regexp))
@@ -148,11 +149,13 @@
     [(alpha) #px"^[-A-Z'/ ]*$"]
     [(alphanum) #px"^[-A-Z'/ 0-9.]*$"]
     [(alphanum=) #px"^[-A-Z'/ 0-9=.]*$"]
-    [(nums) #px"^\\d+$"]
-    [(course-num) #px"^\\d\\d\\d\\d( X)?$"]
+    [(nums) #px"^\\d+$"] ;; e.g. 787 or 000
+    [(course-num) #px"^\\d\\d\\d\\d( X)?$"] ;; e.g. 0432 or 0151 X
     [(seq-num) #px"^(\\*|)\\d+$"]
     [(decimal) #px"^[\\d]*\\.[\\d]+$"]
-    [(course-id) #px"^[A-Z]{2,4} +[0-9]{4}$"]))
+    [(course-id) #px"^[A-Z]{2,4} +[0-9]{4}$"]
+    [(section-num) #px"^(\\d+|1A)$"] ;; ridiculous hack, 1A used to encode 100?
+    ))
 
 ;; given a split-info and a string and a format selector,
 ;; return an association list of the form (Listof (List Symbol String))
@@ -297,6 +300,8 @@
   CSC  0445    01  07011 UD   30  10 04  4.0  MTWTH 0810 0900  0.0  014  0253  LECT      1.000  120.0   3.3    4.0
   AERO 0299    03  09021 LD   22  10 16  1.0  M     1510 1800  0.0  041  0144  LAB       1.000   22.0   2.8    2.0
   AERO 0299    06  09021 LD   22  10 16  1.0  W     1510 1800  0.0  041  0144  LAB       1.000   22.0   2.8    2.0
+  ME   0400    1A  09101 UD    6  10 36  1.8  TBA              0.0             NCAP      1.000   10.8   6.0    2.0
+  MATE 0359    01  09151 UD   25  10 04  4.0  TTH   0910 1100  0.0  186  C100  LECT      1.000  100.0   3.8    4.0
 |
 )
 
@@ -304,7 +309,7 @@
 (define class-header-to-field-info-map : (Listof (List String Symbol Symbol))
   '(("SUBJ" alpha subject)
     ("NUM" course-num course-num)
-    ("SECT" nums section)
+    ("SECT" section-num section)
     ("HEGIS" nums discipline)
     ("LVL" alphanum level)
     ("ENR" nums enrollment)
@@ -643,6 +648,16 @@
      (faculty-contact-hours "")
      (direct-wtu "")
      (indirect-wtu "2.0")))
+
+  (check-equal?
+   
+   (assoc
+    'section
+    (string-split-cols-2
+     2174-course-splitinfo
+     "  ME   0400    1A  09101 UD    6  10 36  1.8  TBA              0.0             NCAP      1.000   10.8   6.0    2.0"))
+   (list 'section "1A")
+   )
 
 
 
