@@ -20,7 +20,7 @@
 
 ;; a mapping table is used to indicate which fields go in which columns
 ;; of the spreadsheet.
-(define-type MappingTable (All (T) (Listof (List (T -> Any) Symbol))))
+(define-type (MappingTable T) (Listof (List (T -> Any) Symbol)))
 
 (define offering-table : (MappingTable Offering)
   (list (list Offering-subject 'subject)
@@ -163,7 +163,7 @@
           (cons 'kind kind))
     ((flatten-struct table) offering))))
 
-(: flatten-faculty-offering (Natural -> (FacultyOffering -> (Listof Any))))
+#;((: flatten-faculty-offering (Natural -> (FacultyOffering -> (Listof Any))))
 (define ((flatten-faculty-offering qtr) offerfac)
   (cond [(member (list (Faculty-Offering-subject offerfac)
                        (Faculty-Offering-coursenum offerfac))
@@ -176,7 +176,7 @@
     (list (cons 'qtr qtr)
           (cons 'kind "faculty-offering")
           (cons ))
-    ((flatten-struct special-table) special))))
+    ((flatten-struct special-table) special)))))
 
 
 (: flatten-instructor (Natural String -> (Instructor -> (Listof Any))))
