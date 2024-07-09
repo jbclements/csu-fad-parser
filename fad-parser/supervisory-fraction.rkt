@@ -4,6 +4,7 @@
          plot
          racket/date)
 
+(define (go)
 (define conn
    (virtual-connection
     (lambda ()
@@ -185,5 +186,5 @@
 
 
 
-(disconnect conn)
+(disconnect conn))
 
