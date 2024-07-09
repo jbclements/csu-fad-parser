@@ -37,6 +37,7 @@ CREATE TABLE "instructors" (
   "id" varchar(128) NOT NULL,
   "name" varchar(128) ,
   "soc" varchar(9) ,
+  "emplid" varchar(24) ,
   PRIMARY KEY ("id")
 );
 
