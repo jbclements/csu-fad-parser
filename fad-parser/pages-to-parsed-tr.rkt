@@ -125,7 +125,7 @@
 ;; their other appointment, it's just that in their non-home
 ;; department, the bottom-line totals are uniformly zero. blecch.
 
-#|'((id other-id name rank tsf iaf adm-lvl osf split split-frac iff))
+#|'((id emplid name rank tsf iaf adm-lvl osf split split-frac iff))
 ;; frac-pattern: #px"[0-9]*\\.[0-9]+", safe to use string->number
 ;; iaf : frac-pattern but could also be blank... but there's a clean
 ;; switch from 0.0 to blank in 2144. So blank is safe to treat as 0.0.
@@ -494,27 +494,7 @@
 ;; WIP INSTRUCTOR PARSING
 ;; FIXME location
 (define header-fields
-  (list->set '(id other-id name rank tsf iaf adm-lvl osf split split-frac iff)))
-
-#;((define header-guesses
-  '(id other-id name rank tsf iaf adm-lvl osf split split-frac iff))
-(define header-checking-table
-  '((id string)
-    (other-id string)
-    (name string)
-    (rank smallset)
-    (tsf frac)
-    (iaf frac)
-    (adm-lvl smallset)
-    (osf frac)
-    (split help)
-    (split-frac frac)
-    (iff frac)))
-
-(define (check-pat [str : String] [pat : Symbol])
-  (match pat
-    ['string 'ok]
-    ['smallset ])))
+  (list->set '(id emplid name rank tsf iaf adm-lvl osf split split-frac iff)))
 
 (define summary-fields
   (list->set '(total-individual
@@ -540,7 +520,7 @@
   (define header-line (InstructorLines-header ilines))
   (Instructor (col-ref 'name header-line)
               (col-ref 'id header-line)
-              (col-ref 'other-id header-line)
+              (col-ref 'emplid header-line)
               (normalize-rank (col-ref 'rank header-line))
               (col-ref 'adm-lvl header-line)
               (assert (string->number (col-ref 'tsf header-line)) nonnegative-real?)

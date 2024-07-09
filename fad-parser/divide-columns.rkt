@@ -39,12 +39,12 @@
      ;; temp hack to allow comparison of old and new results...
      ;; ... can be changed back to just 'cons' when instructor fields are parsed into a struct
      (insert-as-second
-      '(other-id "")
+      '(emplid "")
       (string-split-cols-2 2162-instructor-splitinfo line))]
     [(pre-2144)
      ;; FIXME same here:
      (insert-as-second
-      '(other-id "")
+      '(emplid "")
       (string-split-cols-2 2122-instructor-splitinfo line))]))
 
 ;; insert as second element of list
@@ -387,7 +387,7 @@
     ("IFF" decimal iff)))
 
 (define 2168-instructor-header-to-field-info-map : (Listof (List String Symbol Symbol))
-  (cons '("EMPLOYEE ID" nums other-id)
+  (cons '("EMPLOYEE ID" nums emplid)
         instructor-header-to-field-info-map))
 
 (define 2174-instructor-summary-template
