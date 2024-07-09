@@ -9,6 +9,7 @@
 
 ;; EDIT: or maybe they should be checks on the parsed struct files.
 
+#;(
 (require "divide-columns.rkt"
          "pages-to-parsed-tr.rkt"
          "fad-to-pages.rkt"
@@ -34,7 +35,6 @@
     " GROUP BY o.subject,o.num,o.qtr,o.section "
     " ORDER BY o.qtr;")))
 
-(require explorer)
 (define bads
   (filter (λ (r)
             (> (abs
@@ -272,7 +272,7 @@
       (unless (= (length (apply append )))))))
 
 #;(find-differing-instructor-pairs
- (file->fad-pages "fad-2008-fall.txt"))
+ (file->fad-pages "fad-2008-fall.txt")))
 
 
 

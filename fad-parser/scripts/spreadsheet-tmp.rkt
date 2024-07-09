@@ -1,18 +1,23 @@
 #lang racket
 
-(require "../parsed-data-defn-untyped.rkt")
+(require "../parsed-data-defn.rkt"
+         "../some-structs.rkt")
 
-(define data
-  (for/list ([f (in-list (directory-list "/tmp/"))]
-             #:when (regexp-match #px"fad-21[567].-parsed.rktd" f))
-    (file->value (build-path "/tmp/" f))))
+(define (go)
+  (define data
+    (for/list ([f (in-list (directory-list "/tmp/"))]
+               #:when (regexp-match #px"fad-21[567].-parsed.rktd" f))
+      (file->value (build-path "/tmp/" f))))
 
-(define instructors
-  (apply
-   append
-   (map Dept-instructors
-        (apply append (map Parsed-depts data)))))
+  (define instructors
+    (apply
+     append
+     (map Dept-instructors
+          (apply append (map Parsed-depts data)))))
+  
+  'disabled)
 
+#;(
 (define headers (map Instructor-header instructors))
 
 (define fieldnum 0)
@@ -67,7 +72,7 @@
                              (second (third header))
                              (second (list-ref header 9)))) headers)))))
 
-fv2
+fv2)
 
 
 
