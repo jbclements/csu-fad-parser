@@ -135,12 +135,14 @@
   (List Natural ;; the first column of the new field
         FieldFmt ;; the format of the field
         Symbol ;; the name of the field
-        Boolean)) ;; whether this column must be a space
+        Boolean ;; whether this column must be a space
+        Boolean)) ;; whether this column should be discarded
 
 (define-type FieldFmt (U 'id 'alpha 'alphanum 'alphanum= 'nums
                          'course-num 'course-id
                          'section-num
-                         'seq-num 'decimal))
+                         'seq-num 'decimal
+                         'any))
 
 (: pat (FieldFmt -> Regexp))
 (define (pat sym)
@@ -155,6 +157,7 @@
     [(decimal) #px"^[\\d]*\\.[\\d]+$"]
     [(course-id) #px"^[A-Z]{2,4} +[0-9]{4}$"]
     [(section-num) #px"^(\\d+|1A)$"] ;; ridiculous hack, 1A used to encode 100?
+    [(any) #px"^.*$"]
     ))
 
 ;; given a split-info and a string and a format selector,
@@ -206,29 +209,34 @@
   (define must-be-spaces-list
     (map (ann fourth (SplitInfoField2 -> Boolean))
          split-info))
-  (for/list ([start full-cols-list]
-             [must-be-space? must-be-spaces-list]
-             [stop (rest full-cols-list)]
-             [pat-sym : FieldFmt
-                      (map (ann second (SplitInfoField2 -> FieldFmt))
-                           split-info)]
-             [field-name (map (ann third (SplitInfoField2 -> Symbol))
-                              split-info)])
-    ;; the dividing column should be blank:
-    (when (and (< start (string-length str))
-               must-be-space?
-               (not (equal? #\space (string-ref str start))))
-      (error 'string-split-cols-2
-             "expected to find a space in column ~v, pre-char-post: ~v"
-             start
-             (list (substring str 0 start) (string-ref str start) (substring str (add1 start)))))
-    (define substr (string-trim (substring str (min start len) (min stop len))))
-    (unless (or (string=? "" substr) (regexp-match (pat pat-sym) substr))
-      (error 'split-string-cols 
-             (~a "expected field matching pattern "(~s pat-sym)", got: "
-                 (~s substr)
-                 "in line "(~s str))))
-    (list field-name substr)))
+  (filter
+   (λ ([pr : (List Symbol String)])
+     (not (equal? (first pr) 'discard)))
+   (for/list
+       : (Listof (List Symbol String))
+       ([start full-cols-list]
+        [must-be-space? must-be-spaces-list]
+        [stop (rest full-cols-list)]
+        [pat-sym : FieldFmt
+                 (map (ann second (SplitInfoField2 -> FieldFmt))
+                      split-info)]
+        [field-name (map (ann third (SplitInfoField2 -> Symbol))
+                         split-info)])
+     ;; the dividing column should be blank:
+     (when (and (< start (string-length str))
+                must-be-space?
+                (not (equal? #\space (string-ref str start))))
+       (error 'string-split-cols-2
+              "expected to find a space in column ~v, pre-char-post: ~v"
+              start
+              (list (substring str 0 start) (string-ref str start) (substring str (add1 start)))))
+     (define substr (string-trim (substring str (min start len) (min stop len))))
+     (unless (or (string=? "" substr) (regexp-match (pat pat-sym) substr))
+       (error 'split-string-cols 
+              (~a "expected field matching pattern "(~s pat-sym)", got: "
+                  (~s substr)
+                  "in line "(~s str))))
+     (list field-name substr))))
 
 ;; I'm now using a template-based approach to derive the column
 ;; offsets. I've applied this to some formats of some lines.
@@ -361,8 +369,8 @@
 
 (define 2122-instructor-template
   #<<|
-              X                         X                    X       X           X         X        X                      X     X
-  SSN            NAME                          RANGE CODE      TSF         IAF     ADM-LVL     OSF    <split>                <sf>  IFF      
+   X          X                         X                    X       X           X         X        X                      X     X
+DC  SSN          NAME                          RANGE CODE      TSF         IAF     ADM-LVL     OSF    <split>                <sf>  IFF      
 
   0 XXXXX1234    A X AAAAA               ASSISTANT PRF/LECT B  1.000                                                              1.000     
   0 XXXXX1234    A X BBBBB               ASSOCIATE PRF/LECT C  1.000        .670   AY DEPT                                         .330     
@@ -375,7 +383,8 @@
 
 ;; this maps the name of a column in the instructor header to a format and a column name
 (define instructor-header-to-field-info-map : (Listof (List String Symbol Symbol))
-  '(("SSN" id id) ;; 'id is a TERRIBLE name for this. they can collide!
+  '(("DC" any discard)
+    ("SSN" id id) ;; 'id is a TERRIBLE name for this. they can collide!
     ("NAME" alpha name)
     ("RANGE CODE" alpha rank)
     ("TSF" decimal tsf)
@@ -454,15 +463,15 @@
                                   (list (string-length header-row))))])
       (string-trim (substring header-row start-posn end-posn))))
 
-  (unless (equal? (list->set (map (inst first String Any)
-                                  class-header-to-field-info-map))
-                  (list->set col-headers))
+  (unless (subset? (list->set col-headers)
+                   (list->set (map (inst first String Any)
+                                   class-header-to-field-info-map)))
     (error 'header-map
-           "expected headers ~v (in any order), got headers ~v"
+           "expected headers to be a subset of ~v (in any order), got headers ~v"
            (map (inst first String Any)
                 class-header-to-field-info-map)
            col-headers))
-  (for/list : (Listof (List Natural FieldFmt Symbol Boolean))
+  (for/list : (Listof (List Natural FieldFmt Symbol Boolean Boolean))
     ([col-header (in-list col-headers)]
      [start-posn (in-list (cons 0 split-columns))])
     (define field-info (match (assoc col-header class-header-to-field-info-map)
@@ -479,8 +488,9 @@
      (list start-posn
            (cast (second field-info) FieldFmt)
            (third field-info)
-           must-be-space?)
-     (List Natural FieldFmt Symbol Boolean))))
+           must-be-space?
+           #f)
+     (List Natural FieldFmt Symbol Boolean Boolean))))
 
 (define 2174-course-splitinfo : SplitInfo2
   (template->split-info 2174-class-template
@@ -657,6 +667,24 @@
      2174-course-splitinfo
      "  ME   0400    1A  09101 UD    6  10 36  1.8  TBA              0.0             NCAP      1.000   10.8   6.0    2.0"))
    (list 'section "1A")
+   )
+
+
+  (check-equal?
+   
+   (string-split-cols-2
+    2122-instructor-splitinfo
+    "  0 XXXXX9860    A B CEDARIUM            ASSISTANT PRF/LECT B  1.000                                                              1.000     ")
+   '((id "XXXXX9860")
+     (name "A B CEDARIUM")
+     (rank "ASSISTANT PRF/LECT B")
+     (tsf "1.000")
+     (iaf "")
+     (adm-lvl "")
+     (osf "")
+     (split "")
+     (split-frac "")
+     (iff "1.000"))
    )
 
 

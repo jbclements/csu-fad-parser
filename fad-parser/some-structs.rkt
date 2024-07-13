@@ -9,9 +9,17 @@
 (define-type Summary-Label
   (U "FULL TIME" "PART TIME" "SUBTOTAL" "OTHER" "TOTAL" "SALARY RANGE TITLE"
      "PROFESSOR/LECT D" "ASSOC PROF/LECT C" "ASST PROF/LECT B" "INSTRUCTOR/LECT A"
-     "TCHNG ASSOCIATE" "SUBTOTAL" "ADMINISTRATOR" "OTHER" "SUBTOTAL" "TOTAL"
+     "TCHNG ASSOCIATE"
+     "TCHG ASSOCIATE"
+     "SUBTOTAL"
+     "ADMINISTRATOR" "ADMINSTRATOR"
+     "OTHER" "SUBTOTAL" "TOTAL"
 
-     "GRAD ASSISTANT"))
+     "TCHG ASST/LECT L"
+
+     "GRAD ASSISTANT"
+     ;; whoa, giant hacks here...
+     "SALARY" "RANGE TITLE" "-"))
 
 (define-type Summary (Listof (List Summary-Label (Listof String))))
 
