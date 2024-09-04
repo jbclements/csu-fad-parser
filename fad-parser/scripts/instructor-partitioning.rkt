@@ -1,10 +1,11 @@
 #lang racket
 
-(require data/union-find)
+(require data/union-find
+         tabular-asa)
 
 
 (define sources
-  (call-with-input-file "instructor-data.rktd"
+  (call-with-input-file "/tmp/instructor-data.rktd"
     read))
 (define sources-l (range (vector-length sources)))
 
@@ -14,6 +15,9 @@
 
 (define (name idx)
   (vector-ref (vector-ref sources idx) 1))
+
+(define (ssnx idx)
+  (vector-ref (vector-ref sources idx) 2))
 
 (define (name-and-ssn idx)
   (define elt (vector-ref sources idx))
@@ -30,6 +34,18 @@
       (hash-set! h k (cons elt (hash-ref h k '())))))
   h)
 
+;; extract the groups from the union-find sets:
+(define (get-groups)
+  (define idx-groups
+    (hash-group-by sources-l
+                   (λ (idx) (uf-find (vector-ref sets idx)))))
+
+  (for/list ([(_ idxes) (in-hash idx-groups)])
+    (map (λ (idx) (vector-ref sources idx)) idxes)))
+
+"before starting"
+(length (get-groups))
+
 ;; collapse those with the same emplid:
 
 (define h1 (hash-group-by sources-l
@@ -44,6 +60,11 @@
   (for ([b (rest sames)])
     (uf-union! (vector-ref sets a) (vector-ref sets b))))
 
+"post emplid join"
+(length (get-groups))
+
+;; now join those with the same name and ssnx:
+
 (define h2 (hash-group-by sources-l name-and-ssn))
 
 ;; use uf-union to join each group into one
@@ -52,7 +73,8 @@
   (for ([b (rest sames)])
     (uf-union! (vector-ref sets a) (vector-ref sets b))))
 
-
+"post name/ssnx join"
+(length (get-groups))
 
 (define representatives
   (remove-duplicates
@@ -75,28 +97,119 @@
          [else
           '()])))
 
-;; extract the groups from the union-find sets:
 
-(define idx-groups
-  (hash-group-by sources-l
-                 (λ (idx) (uf-find (vector-ref sets idx)))))
 
-(define groups
-  (for/list ([(_ idxes) (in-hash idx-groups)])
-    (map (λ (idx) (vector-ref sources idx)) idxes)))
+(length (get-groups))
 
-(length groups)
+(call-with-output-file "/tmp/groups.rktd"
+  #:exists 'truncate
+  (λ (port)
+    (pretty-write (get-groups) port)))
+
+;; join some explicitly:
+(define to-join
+  '(
+    (#("T A MIGLER" "XXXXX1589" "000000000046016")
+     #("T A MIGLER-VONDOLLEN" "XXXXX1589" ""))
+    (#("J X ZHANG" "XXXXX9825" "000000000128358")
+     #("X   ZHANG" "XXXXX9825" ""))
+    (#("L L THOMPSON" "XXXXX1461" "000000000036045")
+     #("L T SCHLEMER" "XXXXX1461" ""))
+    (#("V D CALLOW-ADAMS"
+       "XXXXX4784"
+       "000000007453650")
+     #("V D CALLOW" "XXXXX4784" ""))
+
+    (#("N D ELLIS" "XXXXX0002" "")
+     #("N D ELLIS"
+       "XXXXX4006"
+       "000000009252174"))
+    ))
+
+;; given a vector containing name, ssnx, and emplid, return the corresponding
+;; index.
+(define (find-idx vec)
+  (match-define (vector t-name t-ssnx t-emplid) vec)
+  (let loop ([i 0])
+    (cond [(<= (vector-length sources) i)
+           (error 'find-idx "person not found: ~v\n")]
+          [else
+           (cond [(and (equal? (name i) t-name)
+                       (equal? (ssnx i) t-ssnx)
+                       (equal? (emplid i) t-emplid))
+                  i]
+                 [else (loop (add1 i))])])))
+
+(define (merge-pair tup-1 tup-2)
+  (define i (find-idx tup-1))
+  (define j (find-idx tup-2))
+  (uf-union! (vector-ref sets i) (vector-ref sets j)))
+
+(for ([pr (in-list to-join)])
+  (apply merge-pair pr))
+
+(length (get-groups))
 
 ;; check that no group contains emplids that conflict:
 
-(for ([g groups])
-  (define deduplicated-emplids
-    (remove-duplicates
-     (filter (λ (s) (not (equal? s "")))
-             (map (λ (r) (vector-ref r 3)) g))))
-  (when (< 1 (length deduplicated-emplids))
-    (error 'emplid-check "group contains more than one non-empty emplid: ~e"
-           g)))
+(define (tup-name t)
+  (vector-ref t 1))
+
+(define (tup-ssnx t)
+  (vector-ref t 2))
+
+(define (tup-emplid t)
+  (vector-ref t 3))
+
+(define (n-check t1 t2)
+  (cond [(equal? (tup-name t1) (tup-name t2)) 'N]
+        [else 'NX]))
+
+(define (s-check t1 t2)
+  (cond [(equal? (tup-ssnx t1) (tup-ssnx t2)) 'S]
+        [else 'SX]))
+
+(define (e-check t1 t2)
+  (define e1 (tup-emplid t1))
+  (define e2 (tup-emplid t2))
+  (cond [(equal? e1 "") 'EU]
+        [else
+         (cond [(equal? e2 "") 'EU]
+               [else (cond [(equal? e1 e2) 'E]
+                           [else 'EX])])]))
+
+;; don't use this for big groups...
+(define (pairs-from-group g)
+  (match g
+    ['() '()]
+    [(cons f r)
+     (append (map (λ (r-elt) (list f r-elt)) r)
+             (pairs-from-group r))]))
+
+(define final-groups (get-groups))
+
+(for ([g final-groups])
+
+  (for ([pr (in-list (pairs-from-group g))])
+    (match-define (list t1 t2) pr)
+    (define category (list (n-check t1 t2) (s-check t1 t2) (e-check t1 t2)))
+    (when (or (equal? (e-check t1 t2) 'EX)
+              (member category '((NX SX EU))))
+      (eprintf "warning pair in group: ~e and ~e\n"
+               t1 t2)
+      )))
+
+;; find earliest name for each group:
+(define final-table
+  (table-read/sequence
+   (apply
+    append
+    (for/list ([g (in-list final-groups)])
+      (define earliest-name
+        (vector-ref (argmin (λ (v) (vector-ref v 0)) g) 1))
+      (map (λ (tup) (cons earliest-name (vector->list tup))) g)))
+   '(id qtr name ssnx emplid)))
+
 
 
 

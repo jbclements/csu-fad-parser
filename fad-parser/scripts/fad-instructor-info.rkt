@@ -11,7 +11,7 @@
          explorer)
 
 ;; looks like the old format is a bit different.
-(define qtrs (filter (λ (qtr) (< 2142 qtr)) (qtrs-available)))
+(define qtrs (filter (λ (qtr) (< 0 #;2142 qtr)) (qtrs-available)))
 
 (define all-fad-instructors
   (table-read/sequence
@@ -46,21 +46,6 @@
      (table-filter all-fad-instructors (λ (emplid) (not (equal? emplid ""))) '(emplid))
      'qtr))))
 
-;; looks like quarters in 2168 and later include emplid, those before do not.
-
-;; looks like there are two rows with the same name and emplid but different ssnxs:
-#|'((((name "G E SERNA VALENZUELA"))            qtr      dept          id            emplid
-    198   2244   IND ENG   XXXXX6571   000000017370569
-   1346   2232   IND ENG   XXXXX0002   000000017370569
-
-[2 rows x 4 cols]
-) (((name "P M BECKER"))            qtr             dept          id            emplid
-    209   2244   MECHANICAL ENG   XXXXX0005   000000015333964
-   6013   2178   MECHANICAL ENG   XXXXX0013   000000015333964
-
-[2 rows x 4 cols]
-))
-|#
 
 ;; oh dear, there are *lots* of rows with the same emplid and different names. 13, to
 ;; be precise. They all appear to represent people who have changed their names.
@@ -118,8 +103,11 @@
              (sequence->list (table-rows t))))
        port))))
 
+(define fname "/tmp/instructor-data.rktd")
+(when (file-exists? fname)
+  (delete-file fname))
 (table-to-file (table-cut all-fad-instructors '(qtr name id emplid))
-               "/tmp/instructor-data.rktd")
+               fname)
 
 
 (define ssn-groups
