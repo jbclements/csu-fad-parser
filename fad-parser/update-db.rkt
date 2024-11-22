@@ -1,5 +1,20 @@
 #lang racket
 
+;; WHOA! the FAD has had EMPLIDs since 2168. Instructor information
+;; needs to be overhauled. In particular, there are definitely
+;; some ids that should be combined. I don't think there are any
+;; that need to be split, but this is a concern.
+
+;; To fix this, probably do something like this:
+;; - update FAD parser to emit emplids for 2168+ if it doesn't already.
+;; - use brain to discover whether there are ids that can be combined,
+;;    or ids that should be separated
+;; - use this information for a painful database update
+;; - going forward, add a potential remapping step to the fad parser
+;;    to map name/emplid to id.
+
+;; I do not have time to do this right now, ugh.
+
 ;; this file updates the database with information from
 ;; new FAD reports. Generally speaking, after receiving
 ;; a new FAD, you have to run functions from this file
@@ -22,6 +37,10 @@
 ;; 5) psql fad
 ;; 6) copy tsvs into database:
 #|
+psql -f $HOME/fad-update-commands.txt fad
+
+OR
+
 \COPY instructors FROM '/tmp/instructors.tsv';
 \COPY instructorstatuses FROM '/tmp/instructorstatuses.tsv';
 \COPY offerings FROM '/tmp/offerings.tsv';
@@ -87,7 +106,9 @@
                          [(regexp #px"XXXXX[0-9]{4}" (list soc)) soc]))
            (list (Instructor-name instr)
                  (Instructor-name instr)
-                 soc))))))))
+                 soc
+                 ;; HACK HACK
+                 sql-null))))))))
 
 
 (define new-instructors
