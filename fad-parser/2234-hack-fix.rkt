@@ -23,7 +23,8 @@
 
 
 
-(define qtr 2244)
+
+(define qtr 2248)
 
 
 ;; given a string ending with a number, return a string ending with the new number instead.
@@ -42,6 +43,8 @@
   (check-equal? (replace-num "abcd 34" 33) "abcd 33")
   (check-equal? (replace-num "abcd 100" 99) "abcd  99"))
 
+;; given the path to the FAD directory, read the file named fad-<qtr>.txt
+;; and ... sort of fix it? (fix this comment!)
 (define (go path)
   (define s (file->string (build-path path (~a "fad-" qtr ".txt"))))
 
@@ -77,7 +80,7 @@
              (match (list (second lines) (third lines))
                [(list (regexp page-header-2-regexp (list _ mt date mt2 pagenum))
                       (regexp page-assignments-sub-header-regexp))
-                (printf "matches on lines ~v through ~v\n"
+                (printf "found page header on lines ~v through ~v\n"
                         i (+ i 3))
                 (unless (and (equal? mt "")
                              (equal? mt2 ""))
@@ -113,4 +116,4 @@
   
   (display-to-file
    (string-append new-prefix-str "\n" un-doubled)
-   (build-path "/tmp/" (~a "fad-" qtr "-amended.txt"))))
+   (build-path path (~a "fad-" qtr "-amended.txt"))))

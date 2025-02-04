@@ -1,5 +1,7 @@
 #lang racket
 
+;; SEE 2234-hack-fix.rkt, probably needs to be applied to all new FADs going forward, sigh...
+
 ;; WHOA! the FAD has had EMPLIDs since 2168. Instructor information
 ;; needs to be overhauled. In particular, there are definitely
 ;; some ids that should be combined. I don't think there are any
