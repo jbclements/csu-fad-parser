@@ -1,5 +1,6 @@
 #lang racket
 
+;; 2025-03-28: Hack is partly fixed. updated numeric instructions below:
 ;; SEE 2234-hack-fix.rkt, probably needs to be applied to all new FADs going forward, sigh...
 
 ;; WHOA! the FAD has had EMPLIDs since 2168. Instructor information
@@ -25,6 +26,8 @@
 
 ;; 1) update the qtr-nums, below
 ;; 1.5) Delete .tsv files from /tmp
+;; 1.75) use "2234-hack-fix.rkt" to repair fad file, following instructions in that
+;;       file
 ;; 2) run
 ;; 2.5) Use fad-name-add! from instructor-name-ids.rkt, but only for
 ;;      instructors in our departments
@@ -66,7 +69,7 @@ OR
 
 ;; these are the quarters you're running on. Typically
 ;; just a single quarter.
-(define qtr-nums #;(qtrs-available) '(2248))
+(define qtr-nums #;(qtrs-available) '(2252))
 
 ;; given a filename and a list of records (lists),
 ;; output the records in tab-separated format to the given filename
