@@ -65,6 +65,7 @@ Okay, I can do better than that.
   that extracting text from a PDF is hard and unreliable, exporting
   it from MS Word is much more reliable.
 - move resulting text file to (e.g.) ~/onedrive/datasets/FAD/fad-2218.txt
+- raco pkg install ~/csu-fad-parser
 - open ./fad-parser/update-db.rkt, follow instructions
 
 Also, note that installing this package currently triggers some compilation
