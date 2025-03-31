@@ -11,7 +11,14 @@
                "typed-racket-lib"
                "csse-scheduling"
                "csv-writing"
-               "threading"))
+               "threading"
+               "data-lib"
+               "rackunit-lib"
+               "sugar"
+               "tabular-asa"
+
+
+               ))
 (define build-deps '("rackunit-lib"
                      "wxme-lib"
                      "typed-racket-more"))
