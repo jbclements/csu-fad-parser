@@ -31,7 +31,7 @@
 ;; 3) examine <path-to-fad-dir>/fad-<qtr>-amended.txt, delete last line if necessary.
 
 
-(define qtr 2252)
+(define qtr 2254)
 (define discover-prefix-hack-enabled? #f)
 
 
