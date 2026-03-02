@@ -23,7 +23,13 @@
 (provide qtr->parsed
          qtrs-available)
 
-(define FAD-DIRECTORY (build-path "/Users/clements/OneDrive - Cal Poly/datasets/FAD"))
+(define fad-prefs
+  (make-immutable-hash
+   ;; this cast could totally fail! The error message could be improved
+   (cast (file->value (build-path (find-system-path 'pref-dir) "fad.rktd"))
+         (Listof (Pairof Symbol String)))))
+
+(define FAD-DIRECTORY (hash-ref fad-prefs 'fad-directory))
 
 ;; return a list of all the quarters for which we have
 ;; FAD reports
